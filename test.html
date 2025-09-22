@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Musically Engine - Manual Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-weight: bold;
+        }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        .warning { background: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+        
+        button {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px 5px;
+            font-size: 16px;
+        }
+        button:hover {
+            background: #2980b9;
+        }
+        button:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+        }
+        
+        .test-section {
+            margin: 30px 0;
+            padding: 20px;
+            border: 2px solid #ecf0f1;
+            border-radius: 8px;
+        }
+        .test-section h3 {
+            margin-top: 0;
+            color: #2c3e50;
+        }
+        
+        .analysis-result {
+            background: #ecf0f1;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin: 20px 0;
+        }
+        
+        #fileInput {
+            margin: 10px 0;
+        }
+        
+        .system-info {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 20px 0;
+            font-family: monospace;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎵 Musically Engine Manual Test</h1>
+        
+        <div id="status" class="status info">
+            Initializing Musically Engine...
+        </div>
+        
+        <!-- System Information -->
+        <div class="test-section">
+            <h3>📋 System Information</h3>
+            <div id="systemInfo" class="system-info">Loading system information...</div>
+        </div>
+        
+        <!-- Engine Tests -->
+        <div class="test-section">
+            <h3>🔧 Engine Initialization</h3>
+            <div class="controls">
+                <button id="initEngine">Initialize Engine</button>
+                <button id="destroyEngine">Destroy Engine</button>
+            </div>
+            <div id="engineStatus">Engine not initialized</div>
+        </div>
+        
+        <!-- Microphone Tests -->
+        <div class="test-section">
+            <h3>🎤 Microphone Testing</h3>
+            <div class="controls">
+                <button id="startMic" disabled>Start Microphone</button>
+                <button id="stopMic" disabled>Stop Microphone</button>
+            </div>
+            <div id="micStatus">Microphone not active</div>
+            <div class="status warning">
+                <strong>Note:</strong> You'll be prompted for microphone permission. 
+                Make sure to allow access for testing.
+            </div>
+        </div>
+        
+        <!-- File Processing Tests -->
+        <div class="test-section">
+            <h3>📁 File Processing</h3>
+            <input type="file" id="fileInput" accept="audio/*" disabled>
+            <button id="processFile" disabled>Process Audio File</button>
+            <div id="fileStatus">No file selected</div>
+        </div>
+        
+        <!-- Configuration Tests -->
+        <div class="test-section">
+            <h3>⚙️ Configuration Testing</h3>
+            <div class="controls">
+                <button id="setWestern">Set Western Music</button>
+                <button id="setCarnatic">Set Carnatic Music</button>
+                <button id="setHindustani">Set Hindustani Music</button>
+            </div>
+            <div class="controls">
+                <button id="setVoice">Set Voice Type</button>
+                <button id="setPiano">Set Piano Type</button>
+                <button id="setGuitar">Set Guitar Type</button>
+            </div>
+            <div id="configStatus">Default configuration</div>
+        </div>
+        
+        <!-- Real-time Analysis Results -->
+        <div class="test-section">
+            <h3>📊 Real-time Analysis Results</h3>
+            <div id="analysisResults" class="analysis-result">
+                No analysis data yet. Start microphone to see real-time results.
+            </div>
+            <button id="clearResults">Clear Results</button>
+        </div>
+        
+        <!-- Event Log -->
+        <div class="test-section">
+            <h3>📝 Event Log</h3>
+            <div id="eventLog" class="analysis-result">
+                Event log will appear here...
+            </div>
+            <button id="clearLog">Clear Log</button>
+        </div>
+    </div>
+
+    <script src="dist/browser/index.umd.js"></script>
+    <script>
+        // Global variables
+        let engine = null;
+        let analysisCount = 0;
+        const maxLogEntries = 50;
+
+        // DOM elements
+        const elements = {
+            status: document.getElementById('status'),
+            systemInfo: document.getElementById('systemInfo'),
+            engineStatus: document.getElementById('engineStatus'),
+            micStatus: document.getElementById('micStatus'),
+            fileStatus: document.getElementById('fileStatus'),
+            configStatus: document.getElementById('configStatus'),
+            analysisResults: document.getElementById('analysisResults'),
+            eventLog: document.getElementById('eventLog'),
+            
+            initEngine: document.getElementById('initEngine'),
+            destroyEngine: document.getElementById('destroyEngine'),
+            startMic: document.getElementById('startMic'),
+            stopMic: document.getElementById('stopMic'),
+            fileInput: document.getElementById('fileInput'),
+            processFile: document.getElementById('processFile'),
+            
+            setWestern: document.getElementById('setWestern'),
+            setCarnatic: document.getElementById('setCarnatic'),
+            setHindustani: document.getElementById('setHindustani'),
+            setVoice: document.getElementById('setVoice'),
+            setPiano: document.getElementById('setPiano'),
+            setGuitar: document.getElementById('setGuitar'),
+            
+            clearResults: document.getElementById('clearResults'),
+            clearLog: document.getElementById('clearLog')
+        };
+
+        // Utility functions
+        function updateStatus(message, type = 'info') {
+            elements.status.className = `status ${type}`;
+            elements.status.textContent = message;
+            logEvent(`STATUS: ${message}`, type);
+        }
+
+        function logEvent(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${message}\n`;
+            
+            elements.eventLog.textContent = logEntry + elements.eventLog.textContent;
+            
+            // Limit log entries
+            const lines = elements.eventLog.textContent.split('\n');
+            if (lines.length > maxLogEntries) {
+                elements.eventLog.textContent = lines.slice(0, maxLogEntries).join('\n');
+            }
+        }
+
+        function updateSystemInfo() {
+            try {
+                // Check if MusicallyEngine is available
+                if (typeof MusicallyEngine === 'undefined') {
+                    elements.systemInfo.textContent = 'ERROR: MusicallyEngine not loaded from UMD bundle';
+                    return;
+                }
+
+                const info = `MusicallyEngine Status: Available
+Browser: ${navigator.userAgent}
+Platform Detection Available: ${typeof MusicallyEngine.PlatformDetection !== 'undefined'}
+WebAudioAdapter Available: ${typeof MusicallyEngine.WebAudioAdapter !== 'undefined'}`;
+                
+                elements.systemInfo.textContent = info;
+                updateStatus('MusicallyEngine loaded successfully', 'success');
+            } catch (error) {
+                elements.systemInfo.textContent = `Error getting system info: ${error.message}`;
+                updateStatus('Failed to load MusicallyEngine', 'error');
+            }
+        }
+
+        // Engine functions
+        async function initializeEngine() {
+            try {
+                updateStatus('Initializing engine...', 'info');
+                
+                engine = MusicallyEngine.default.create({
+                    sampleRate: 44100,
+                    bufferSize: 2048,
+                    musicSystem: 'western',
+                    audioType: 'auto'
+                });
+
+                // Set up event listeners
+                engine.on('initialized', (data) => {
+                    logEvent('Engine initialized successfully');
+                    elements.engineStatus.textContent = 'Engine initialized and ready';
+                    enableControls();
+                });
+
+                engine.on('error', (error) => {
+                    logEvent(`Engine error: ${error.message}`, 'error');
+                    updateStatus(`Engine error: ${error.message}`, 'error');
+                });
+
+                engine.on('analysis', (result) => {
+                    analysisCount++;
+                    displayAnalysisResult(result);
+                });
+
+                engine.on('audio_start', () => {
+                    logEvent('Audio capture started');
+                    elements.micStatus.textContent = 'Microphone active - listening...';
+                    elements.startMic.disabled = true;
+                    elements.stopMic.disabled = false;
+                });
+
+                engine.on('audio_stop', () => {
+                    logEvent('Audio capture stopped');
+                    elements.micStatus.textContent = 'Microphone stopped';
+                    elements.startMic.disabled = false;
+                    elements.stopMic.disabled = true;
+                });
+
+                engine.on('config_change', (change) => {
+                    logEvent(`Configuration changed: ${JSON.stringify(change)}`);
+                    updateConfigDisplay();
+                });
+
+                await engine.initialize();
+                updateStatus('Engine initialized successfully', 'success');
+                
+            } catch (error) {
+                updateStatus(`Failed to initialize engine: ${error.message}`, 'error');
+                logEvent(`Initialization error: ${error.message}`, 'error');
+            }
+        }
+
+        async function destroyEngine() {
+            if (engine) {
+                try {
+                    await engine.destroy();
+                    engine = null;
+                    updateStatus('Engine destroyed', 'info');
+                    elements.engineStatus.textContent = 'Engine not initialized';
+                    disableControls();
+                } catch (error) {
+                    updateStatus(`Failed to destroy engine: ${error.message}`, 'error');
+                }
+            }
+        }
+
+        async function startMicrophone() {
+            if (!engine) return;
+            
+            try {
+                updateStatus('Starting microphone...', 'info');
+                await engine.startMicrophone();
+            } catch (error) {
+                updateStatus(`Failed to start microphone: ${error.message}`, 'error');
+                logEvent(`Microphone error: ${error.message}`, 'error');
+            }
+        }
+
+        function stopMicrophone() {
+            if (!engine) return;
+            
+            try {
+                engine.stopMicrophone();
+                updateStatus('Microphone stopped', 'info');
+            } catch (error) {
+                updateStatus(`Failed to stop microphone: ${error.message}`, 'error');
+            }
+        }
+
+        async function processFile() {
+            if (!engine) return;
+            
+            const file = elements.fileInput.files[0];
+            if (!file) {
+                updateStatus('Please select an audio file', 'warning');
+                return;
+            }
+
+            try {
+                updateStatus('Processing audio file...', 'info');
+                elements.fileStatus.textContent = `Processing ${file.name}...`;
+                
+                const results = await engine.processFile(file);
+                
+                elements.fileStatus.textContent = `Processed ${file.name} - Found ${results.length} analysis results`;
+                logEvent(`File processed: ${file.name}, Results: ${results.length}`);
+                updateStatus('File processed successfully', 'success');
+                
+            } catch (error) {
+                updateStatus(`Failed to process file: ${error.message}`, 'error');
+                elements.fileStatus.textContent = `Failed to process ${file.name}`;
+            }
+        }
+
+        function displayAnalysisResult(result) {
+            const analysisText = `Analysis #${analysisCount}:
+Timestamp: ${new Date(result.timestamp).toLocaleTimeString()}
+Frequency: ${result.frequency.toFixed(2)} Hz
+Amplitude: ${result.amplitude.toFixed(3)}
+Confidence: ${(result.confidence * 100).toFixed(1)}%
+Audio Type: ${result.audioType}
+
+Western Analysis:
+  Note: ${result.western.note}
+  Frequency: ${result.western.noteFrequency.toFixed(2)} Hz
+  Cents: ${result.western.cents.toFixed(1)}
+  Octave: ${result.western.octave}
+
+Musical Context:
+  Interval from Tonic: ${result.musicalContext.intervalFromTonic}
+  In Scale: ${result.musicalContext.inScale ? 'Yes' : 'No'}
+
+-------------------`;
+
+            elements.analysisResults.textContent = analysisText + '\n' + elements.analysisResults.textContent;
+            
+            // Limit results display
+            const lines = elements.analysisResults.textContent.split('\n');
+            if (lines.length > 100) {
+                elements.analysisResults.textContent = lines.slice(0, 100).join('\n');
+            }
+        }
+
+        function updateConfigDisplay() {
+            if (!engine) return;
+            
+            const config = engine.getConfig();
+            elements.configStatus.textContent = `Music System: ${config.musicSystem}, Audio Type: ${config.audioType}, Reference: ${config.referencePitch}Hz`;
+        }
+
+        function enableControls() {
+            elements.startMic.disabled = false;
+            elements.fileInput.disabled = false;
+            elements.processFile.disabled = false;
+            updateConfigDisplay();
+        }
+
+        function disableControls() {
+            elements.startMic.disabled = true;
+            elements.stopMic.disabled = true;
+            elements.fileInput.disabled = true;
+            elements.processFile.disabled = true;
+            elements.micStatus.textContent = 'Microphone not active';
+            elements.configStatus.textContent = 'Default configuration';
+        }
+
+        // Event listeners
+        elements.initEngine.addEventListener('click', initializeEngine);
+        elements.destroyEngine.addEventListener('click', destroyEngine);
+        elements.startMic.addEventListener('click', startMicrophone);
+        elements.stopMic.addEventListener('click', stopMicrophone);
+        elements.processFile.addEventListener('click', processFile);
+
+        elements.setWestern.addEventListener('click', () => {
+            if (engine) engine.setMusicSystem('western');
+        });
+        elements.setCarnatic.addEventListener('click', () => {
+            if (engine) engine.setMusicSystem('carnatic');
+        });
+        elements.setHindustani.addEventListener('click', () => {
+            if (engine) engine.setMusicSystem('hindustani');
+        });
+
+        elements.setVoice.addEventListener('click', () => {
+            if (engine) engine.setAudioType('voice');
+        });
+        elements.setPiano.addEventListener('click', () => {
+            if (engine) engine.setAudioType('piano');
+        });
+        elements.setGuitar.addEventListener('click', () => {
+            if (engine) engine.setAudioType('guitar');
+        });
+
+        elements.clearResults.addEventListener('click', () => {
+            elements.analysisResults.textContent = 'Analysis results cleared.';
+            analysisCount = 0;
+        });
+
+        elements.clearLog.addEventListener('click', () => {
+            elements.eventLog.textContent = 'Event log cleared.';
+        });
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            updateSystemInfo();
+        });
+    </script>
+</body>
+</html>

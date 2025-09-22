@@ -111,3 +111,8 @@ logs
 *.m4a
 *.ogg
 *.flac
+
+# Optional: Uncomment to ignore test files if they change frequently
+# test.html
+# test-*.html
+# MANUAL_TESTING.md
