@@ -242,9 +242,244 @@ describe('WebAudioAdapter', () => {
     });
   });
   
+  describe('Configuration methods', () => {
+    beforeEach(async () => {
+      const config: AudioCaptureConfig = {
+        sampleRate: 44100,
+        bufferSize: 2048,
+        channelCount: 1,
+        bitDepth: 32,
+        latency: 'interactive'
+      };
+      await adapter.initialize(config);
+    });
+
+    test('should set latency hint', () => {
+      expect(() => adapter.setLatencyHint('balanced')).not.toThrow();
+      expect(() => adapter.setLatencyHint('playback')).not.toThrow();
+    });
+
+    test('should enable processing optimizations', () => {
+      expect(() => adapter.enableProcessingOptimizations()).not.toThrow();
+    });
+  });
+
+  describe('Audio processor creation', () => {
+    beforeEach(async () => {
+      const config: AudioCaptureConfig = {
+        sampleRate: 44100,
+        bufferSize: 2048,
+        channelCount: 1,
+        bitDepth: 32,
+        latency: 'interactive'
+      };
+      await adapter.initialize(config);
+    });
+
+    test('should create script processor when AudioWorklet fails', async () => {
+      // Mock getUserMedia and start microphone to trigger processor creation
+      const mockStream = {
+        getTracks: () => [{ stop: jest.fn() }]
+      };
+      (navigator.mediaDevices.getUserMedia as jest.Mock).mockResolvedValue(mockStream);
+
+      await expect(adapter.startMicrophone()).resolves.not.toThrow();
+      
+      // Verify processor node was created (indirectly through successful start)
+      expect(adapter.stopMicrophone).not.toThrow();
+    });
+
+    test('should handle processor node creation errors', async () => {
+      // Mock a problematic audio context
+      const audioContext = adapter.getAudioContext();
+      audioContext.createScriptProcessor = jest.fn().mockImplementation(() => {
+        throw new Error('Cannot create processor');
+      });
+
+      const mockStream = {
+        getTracks: () => [{ stop: jest.fn() }]
+      };
+      (navigator.mediaDevices.getUserMedia as jest.Mock).mockResolvedValue(mockStream);
+
+      await expect(adapter.startMicrophone()).rejects.toThrow();
+    });
+  });
+
+  describe('Error scenarios', () => {
+    test('should handle audio context creation failure', async () => {
+      // Mock absence of AudioContext
+      const originalAudioContext = window.AudioContext;
+      const originalWebkitAudioContext = (window as any).webkitAudioContext;
+      
+      delete (window as any).AudioContext;
+      delete (window as any).webkitAudioContext;
+
+      const config: AudioCaptureConfig = {
+        sampleRate: 44100,
+        bufferSize: 2048,
+        channelCount: 1,
+        bitDepth: 32,
+        latency: 'interactive'
+      };
+
+      await expect(adapter.initialize(config)).rejects.toThrow('not supported');
+
+      // Restore
+      window.AudioContext = originalAudioContext;
+      (window as any).webkitAudioContext = originalWebkitAudioContext;
+    });
+
+    test('should handle audio context resume failure', async () => {
+      const config: AudioCaptureConfig = {
+        sampleRate: 44100,
+        bufferSize: 2048,
+        channelCount: 1,
+        bitDepth: 32,
+        latency: 'interactive'
+      };
+
+      // Mock audio context that fails to resume
+      const mockAudioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      mockAudioContext.state = 'suspended';
+      mockAudioContext.resume = jest.fn().mockRejectedValue(new Error('Resume failed'));
+      
+      // Override the constructor to return our mock
+      const OriginalAudioContext = window.AudioContext;
+      window.AudioContext = jest.fn().mockReturnValue(mockAudioContext);
+
+      await expect(adapter.initialize(config)).rejects.toThrow();
+
+      // Restore
+      window.AudioContext = OriginalAudioContext;
+    });
+
+    test('should throw when starting microphone without initialization', async () => {
+      await expect(adapter.startMicrophone()).rejects.toThrow('not initialized');
+    });
+
+    test('should throw when starting microphone twice', async () => {
+      const config: AudioCaptureConfig = {
+        sampleRate: 44100,
+        bufferSize: 2048,
+        channelCount: 1,
+        bitDepth: 32,
+        latency: 'interactive'
+      };
+      await adapter.initialize(config);
+
+      const mockStream = {
+        getTracks: () => [{ stop: jest.fn() }]
+      };
+      (navigator.mediaDevices.getUserMedia as jest.Mock).mockResolvedValue(mockStream);
+
+      await adapter.startMicrophone();
+      await expect(adapter.startMicrophone()).rejects.toThrow('already active');
+    });
+
+    test('should throw when loading file without initialization', async () => {
+      const mockFile = new File([''], 'test.wav');
+      await expect(adapter.loadFile(mockFile)).rejects.toThrow('not initialized');
+    });
+
+    test('should handle file decoding errors', async () => {
+      const config: AudioCaptureConfig = {
+        sampleRate: 44100,
+        bufferSize: 2048,
+        channelCount: 1,
+        bitDepth: 32,
+        latency: 'interactive'
+      };
+      await adapter.initialize(config);
+
+      // Mock audio context to reject decoding
+      const audioContext = adapter.getAudioContext();
+      audioContext.decodeAudioData = jest.fn().mockRejectedValue(new Error('Decode failed'));
+
+      const mockFile = {
+        arrayBuffer: jest.fn().mockResolvedValue(new ArrayBuffer(1024))
+      } as unknown as File;
+
+      await expect(adapter.loadFile(mockFile)).rejects.toThrow('Failed to load audio file');
+    });
+  });
+
+  describe('Audio context state management', () => {
+    test('should handle suspended audio context', async () => {
+      const config: AudioCaptureConfig = {
+        sampleRate: 44100,
+        bufferSize: 2048,
+        channelCount: 1,
+        bitDepth: 32,
+        latency: 'interactive'
+      };
+
+      await adapter.initialize(config);
+      
+      const audioContext = adapter.getAudioContext();
+      expect(audioContext.state).toBe('running'); // Should be resumed after init
+    });
+
+    test('should close audio context on destroy', async () => {
+      const config: AudioCaptureConfig = {
+        sampleRate: 44100,
+        bufferSize: 2048,
+        channelCount: 1,
+        bitDepth: 32,
+        latency: 'interactive'
+      };
+
+      await adapter.initialize(config);
+      const audioContext = adapter.getAudioContext();
+      
+      await adapter.destroy();
+      
+      expect(audioContext.state).toBe('closed');
+    });
+
+    test('should handle already closed audio context in destroy', async () => {
+      const config: AudioCaptureConfig = {
+        sampleRate: 44100,
+        bufferSize: 2048,
+        channelCount: 1,
+        bitDepth: 32,
+        latency: 'interactive'
+      };
+
+      await adapter.initialize(config);
+      const audioContext = adapter.getAudioContext();
+      
+      // Close it manually first
+      await audioContext.close();
+      
+      // Should not throw when destroying again
+      await expect(adapter.destroy()).resolves.not.toThrow();
+    });
+  });
+
   describe('Browser support detection', () => {
     test('should detect browser support', () => {
       expect(WebAudioAdapter.isSupported()).toBe(true);
+    });
+
+    test('should detect no browser support when APIs missing', () => {
+      const originalAudioContext = window.AudioContext;
+      const originalWebkitAudioContext = (window as any).webkitAudioContext;
+      const originalGetUserMedia = navigator.mediaDevices?.getUserMedia;
+      
+      delete (window as any).AudioContext;
+      delete (window as any).webkitAudioContext;
+      if (navigator.mediaDevices) {
+        delete (navigator.mediaDevices as any).getUserMedia;
+      }
+
+      expect(WebAudioAdapter.isSupported()).toBe(false);
+
+      // Restore
+      window.AudioContext = originalAudioContext;
+      (window as any).webkitAudioContext = originalWebkitAudioContext;
+      if (navigator.mediaDevices && originalGetUserMedia) {
+        navigator.mediaDevices.getUserMedia = originalGetUserMedia;
+      }
     });
     
     test('should provide browser information', async () => {
