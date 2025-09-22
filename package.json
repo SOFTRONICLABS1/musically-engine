@@ -1,0 +1,79 @@
+{
+  "name": "@musically-engine/core",
+  "version": "1.0.0",
+  "description": "Platform-agnostic audio processing SDK for musical note detection and analysis",
+  "keywords": [
+    "audio",
+    "music",
+    "pitch-detection",
+    "carnatic",
+    "hindustani",
+    "western-music",
+    "real-time",
+    "cross-platform"
+  ],
+  "author": "SOFTRONICLABS1",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/SOFTRONICLABS1/musically-engine.git"
+  },
+  "exports": {
+    ".": {
+      "browser": "./dist/browser/index.js",
+      "node": "./dist/node/index.js",
+      "react-native": "./dist/react-native/index.js",
+      "electron": "./dist/electron/index.js",
+      "default": "./dist/universal/index.js"
+    },
+    "./browser": "./dist/browser/index.js",
+    "./node": "./dist/node/index.js",
+    "./react-native": "./dist/react-native/index.js",
+    "./electron": "./dist/electron/index.js"
+  },
+  "main": "./dist/universal/index.js",
+  "types": "./dist/index.d.ts",
+  "sideEffects": false,
+  "scripts": {
+    "build": "npm run build:core && npm run build:platforms",
+    "build:core": "rollup -c rollup.config.js",
+    "build:platforms": "npm run build:browser && npm run build:node && npm run build:rn && npm run build:electron",
+    "build:browser": "rollup -c rollup.browser.config.js",
+    "build:node": "rollup -c rollup.node.config.js",
+    "build:rn": "rollup -c rollup.react-native.config.js",
+    "build:electron": "rollup -c rollup.electron.config.js",
+    "dev": "rollup -c rollup.config.js -w",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "lint": "eslint src/**/*.ts",
+    "lint:fix": "eslint src/**/*.ts --fix",
+    "typecheck": "tsc --noEmit",
+    "clean": "rimraf dist",
+    "prepublishOnly": "npm run clean && npm run build"
+  },
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "^25.0.4",
+    "@rollup/plugin-node-resolve": "^15.2.1",
+    "@rollup/plugin-typescript": "^11.1.3",
+    "@types/jest": "^29.5.5",
+    "@types/node": "^20.6.0",
+    "@typescript-eslint/eslint-plugin": "^6.7.0",
+    "@typescript-eslint/parser": "^6.7.0",
+    "eslint": "^8.49.0",
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^30.1.2",
+    "rimraf": "^5.0.1",
+    "rollup": "^3.29.2",
+    "ts-jest": "^29.1.1",
+    "tslib": "^2.8.1",
+    "typescript": "^5.2.2"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}
