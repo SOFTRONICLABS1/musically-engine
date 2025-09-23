@@ -26,6 +26,7 @@ import { EventEmitter } from './core/EventEmitter';
 import { AudioCapture } from './core/AudioCapture';
 import { IPlatformAdapter } from './platforms/IPlatformAdapter';
 import { WebAudioAdapter } from './platforms/browser/WebAudioAdapter';
+import { NodeAudioAdapter } from './platforms/node/NodeAudioAdapter';
 import { PlatformDetection } from './utils/PlatformDetection';
 import { 
   EngineConfig, 
@@ -241,8 +242,7 @@ export class MusicallyEngine extends EventEmitter {
       case 'browser':
         return new WebAudioAdapter();
       case 'node':
-        // TODO: Implement NodeAudioAdapter in Phase 2
-        throw new Error('Node.js adapter not yet implemented');
+        return new NodeAudioAdapter();
       case 'react-native':
         // TODO: Implement RNAudioAdapter in Phase 5
         throw new Error('React Native adapter not yet implemented');

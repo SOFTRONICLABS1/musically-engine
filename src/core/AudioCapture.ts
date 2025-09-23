@@ -53,7 +53,7 @@ export class AudioCapture extends EventEmitter {
       this.emit('initialized', { config: this.config });
     } catch (error) {
       const engineError: EngineError = {
-        code: 'INITIALIZATION_FAILED',
+        code: 'ENGINE_INIT_FAILED',
         message: 'Failed to initialize audio capture',
         details: error
       };
@@ -248,11 +248,6 @@ export class AudioCapture extends EventEmitter {
     });
     
     this.adapter.on('audio_data', (data) => {
-      this.emit('audio_data', data);
-    });
-    
-    // Set up audio data forwarding
-    this.adapter.onAudioData((data: Float32Array) => {
       this.emit('audio_data', data);
     });
   }
