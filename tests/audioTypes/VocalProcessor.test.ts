@@ -358,6 +358,123 @@ describe('VocalProcessor', () => {
             expect(result.fundamentalFrequency).toBe(0);
         });
     });
+
+    describe('Advanced Voice Processing', () => {
+        test('should handle very quiet voice signals', () => {
+            const buffer = generateVoiceSignal(sampleRate, frameSize);
+            // Make it very quiet
+            for (let i = 0; i < buffer.length; i++) {
+                buffer[i] *= 0.01;
+            }
+            
+            const result = processor.processVoice(buffer);
+            expect(result).toBeDefined();
+            expect(result.fundamentalFrequency).toBeGreaterThanOrEqual(0);
+        });
+
+        test('should process voice with vibrato modulation', () => {
+            const buffer = generateVoiceWithVibrato(sampleRate, frameSize);
+            const result = processor.processVoice(buffer);
+            
+            expect(result.fundamentalFrequency).toBeGreaterThan(0);
+            expect(result.vibrato.present).toBeDefined();
+            expect(result.voiceQuality).toBeDefined();
+        });
+
+        test('should handle voice with formant shifts', () => {
+            const buffer = generateVoiceWithFormantShift(sampleRate, frameSize);
+            const result = processor.processVoice(buffer);
+            
+            expect(result.formants.length).toBeGreaterThan(0);
+            expect(result.vowelClassification).toBeDefined();
+        });
+
+        test('should handle polyphonic vocal content', () => {
+            const buffer = generatePolyphonicVoice(sampleRate, frameSize);
+            const result = processor.processVoice(buffer);
+            
+            expect(result.fundamentalFrequency).toBeGreaterThan(0);
+            expect(result.formants.length).toBeGreaterThan(0);
+        });
+    });
+
+    describe('Edge Cases and Robustness', () => {
+        test('should handle extremely short buffers gracefully', () => {
+            const shortBuffer = new Float32Array(5);
+            shortBuffer.fill(0.1);
+            
+            const result = processor.processVoice(shortBuffer);
+            expect(result).toBeDefined();
+            expect(result.fundamentalFrequency).toBeGreaterThanOrEqual(0);
+        });
+
+        test('should handle buffers with only DC component', () => {
+            const dcBuffer = new Float32Array(frameSize);
+            dcBuffer.fill(0.5); // Pure DC
+            
+            const result = processor.processVoice(dcBuffer);
+            expect(result).toBeDefined();
+            expect(result.fundamentalFrequency).toBe(0);
+        });
+
+        test('should process voice in different frequency ranges', () => {
+            // Test bass voice (low frequency)
+            const bassBuffer = generateVoiceSignal(sampleRate, frameSize, 85);
+            const bassResult = processor.processVoice(bassBuffer);
+            expect(bassResult.fundamentalFrequency).toBeGreaterThan(70);
+            expect(bassResult.fundamentalFrequency).toBeLessThan(150);
+            
+            // Test soprano voice (high frequency)  
+            const sopranoBuffer = generateVoiceSignal(sampleRate, frameSize, 350);
+            const sopranoResult = processor.processVoice(sopranoBuffer);
+            expect(sopranoResult.fundamentalFrequency).toBeGreaterThan(300);
+        });
+
+        test('should handle voice with background noise', () => {
+            const cleanBuffer = generateVoiceSignal(sampleRate, frameSize);
+            const noisyBuffer = addBackgroundNoise(cleanBuffer, 0.1);
+            
+            const result = processor.processVoice(noisyBuffer);
+            expect(result.fundamentalFrequency).toBeGreaterThan(0);
+            expect(result.confidence).toBeGreaterThan(0.3);
+        });
+
+        test('should detect voice quality degradation', () => {
+            const harshBuffer = generateHarshVoice(sampleRate, frameSize);
+            const result = processor.processVoice(harshBuffer);
+            
+            expect(result.voiceQuality.roughness).toBeGreaterThan(0);
+            expect(result.voiceQuality.strain).toBeGreaterThan(0);
+        });
+    });
+
+    describe('Configuration and Initialization', () => {
+        test('should work with different frame sizes', () => {
+            const processor1024 = new VocalProcessor({ 
+                sampleRate,
+                frameSize: 1024
+            });
+            
+            const buffer = generateVoiceSignal(sampleRate, 1024);
+            const result = processor1024.processVoice(buffer);
+            
+            expect(result).toBeDefined();
+            expect(result.fundamentalFrequency).toBeGreaterThan(0);
+        });
+
+        test('should handle different sample rates', () => {
+            const processor48k = new VocalProcessor({
+                sampleRate: 48000,
+                frameSize: 2048
+            });
+            
+            const buffer = generateVoiceSignal(48000, 2048);
+            const result = processor48k.processVoice(buffer);
+            
+            expect(result).toBeDefined();
+            expect(result.fundamentalFrequency).toBeGreaterThan(0);
+        });
+    });
 });
 
 // Helper functions for generating test voice signals
@@ -659,5 +776,98 @@ function generateNoisyPitch(frequency: number, sampleRate: number, length: numbe
         buffer[i] = 0.5 * Math.sin(2 * Math.PI * freq * i / sampleRate);
     }
     
+    return buffer;
+}
+
+function generateVoiceWithVibrato(sampleRate: number, length: number): Float32Array {
+    const buffer = new Float32Array(length);
+    const fundamental = 200;
+    const vibratoRate = 6; // Hz
+    const vibratoDepth = 0.02; // 2% frequency modulation
+    
+    for (let i = 0; i < length; i++) {
+        const vibrato = 1 + vibratoDepth * Math.sin(2 * Math.PI * vibratoRate * i / sampleRate);
+        const freq = fundamental * vibrato;
+        
+        let sample = 0.4 * Math.sin(2 * Math.PI * freq * i / sampleRate);
+        
+        // Add formants
+        sample += 0.2 * Math.sin(2 * Math.PI * 800 * i / sampleRate);
+        sample += 0.1 * Math.sin(2 * Math.PI * 1200 * i / sampleRate);
+        
+        buffer[i] = sample;
+    }
+    return buffer;
+}
+
+function generateVoiceWithFormantShift(sampleRate: number, length: number): Float32Array {
+    const buffer = new Float32Array(length);
+    const fundamental = 180;
+    
+    for (let i = 0; i < length; i++) {
+        const progress = i / length;
+        
+        // Shifting formants (a -> e vowel transition)
+        const f1 = 700 + 200 * progress; // 700 -> 900 Hz
+        const f2 = 1100 + 700 * progress; // 1100 -> 1800 Hz
+        
+        let sample = 0.3 * Math.sin(2 * Math.PI * fundamental * i / sampleRate);
+        sample += 0.15 * Math.sin(2 * Math.PI * f1 * i / sampleRate);
+        sample += 0.1 * Math.sin(2 * Math.PI * f2 * i / sampleRate);
+        
+        buffer[i] = sample;
+    }
+    return buffer;
+}
+
+function generatePolyphonicVoice(sampleRate: number, length: number): Float32Array {
+    const buffer = new Float32Array(length);
+    const fundamentals = [160, 200]; // Two voice parts
+    
+    for (let i = 0; i < length; i++) {
+        let sample = 0;
+        
+        fundamentals.forEach((freq, index) => {
+            const amplitude = 0.25 / (index + 1);
+            sample += amplitude * Math.sin(2 * Math.PI * freq * i / sampleRate);
+            
+            // Add formants for each voice
+            sample += amplitude * 0.5 * Math.sin(2 * Math.PI * (800 + index * 100) * i / sampleRate);
+        });
+        
+        buffer[i] = sample;
+    }
+    return buffer;
+}
+
+function addBackgroundNoise(signal: Float32Array, noiseLevel: number): Float32Array {
+    const noisy = new Float32Array(signal.length);
+    for (let i = 0; i < signal.length; i++) {
+        noisy[i] = signal[i] + noiseLevel * (Math.random() - 0.5);
+    }
+    return noisy;
+}
+
+function generateHarshVoice(sampleRate: number, length: number): Float32Array {
+    const buffer = new Float32Array(length);
+    const fundamental = 220;
+    
+    for (let i = 0; i < length; i++) {
+        let sample = 0.3 * Math.sin(2 * Math.PI * fundamental * i / sampleRate);
+        
+        // Add harsh harmonics and noise
+        for (let h = 2; h <= 8; h++) {
+            sample += 0.1 * Math.sin(2 * Math.PI * fundamental * h * i / sampleRate);
+        }
+        
+        // Add roughness (amplitude modulation)
+        const roughness = 1 + 0.3 * Math.sin(2 * Math.PI * 30 * i / sampleRate);
+        sample *= roughness;
+        
+        // Add noise
+        sample += 0.1 * (Math.random() - 0.5);
+        
+        buffer[i] = sample * 0.6;
+    }
     return buffer;
 }

@@ -133,10 +133,10 @@ export class VocalProcessor {
   private formantHistory: FormantData[][] = [];
   private vibratoBuffer: number[] = [];
   
-  constructor(sampleRate: number = 44100, config?: Partial<VocalConfig>) {
-    this.sampleRate = sampleRate;
-    this.frameSize = 2048;
-    this.hopSize = 512;
+  constructor(config: { sampleRate?: number; frameSize?: number; [key: string]: any } = {}) {
+    this.sampleRate = config.sampleRate ?? 44100;
+    this.frameSize = config.frameSize ?? 2048;
+    this.hopSize = config.frameSize ? Math.floor(config.frameSize / 4) : 512;
     
     this.config = {
       vibrato: {
@@ -159,11 +159,11 @@ export class VocalProcessor {
         detectMeend: true,
         detectKan: true
       },
-      ...config
+      ...config.vocalConfig || {}
     };
     
-    this.fft = new FFT(this.frameSize, sampleRate);
-    this.yin = new YIN(sampleRate);
+    this.fft = new FFT(this.frameSize, this.sampleRate);
+    this.yin = new YIN(this.sampleRate);
   }
   
   /**
@@ -193,8 +193,13 @@ export class VocalProcessor {
     // Pre-process audio for vocal analysis
     processedBuffer = this.preProcessVocal(processedBuffer);
     
-    // Extract fundamental frequency using YIN (best for voice)
-    const pitchResult = this.yin.detectPitch(processedBuffer);
+    // Extract fundamental frequency using YIN with fallback
+    let pitchResult = this.yin.detectPitch(processedBuffer);
+    
+    // If YIN fails (common with test signals), use FFT-based pitch detection as fallback
+    if (pitchResult.frequency === 0) {
+      pitchResult = this.detectPitchFFT(processedBuffer);
+    }
     
     // Track pitch history for ornament detection
     this.updatePitchHistory(pitchResult.frequency);
@@ -1075,6 +1080,74 @@ export class VocalProcessor {
         smoothness: 0
       }
     };
+  }
+  
+  /**
+   * FFT-based pitch detection as fallback when YIN fails
+   * Simple but effective for test signals
+   */
+  private detectPitchFFT(buffer: Float32Array): { frequency: number; confidence: number } {
+    // Basic error checking
+    if (buffer.length === 0 || !this.fft) {
+      return { frequency: 0, confidence: 0 };
+    }
+    
+    try {
+      // Apply window function to reduce spectral leakage
+      const windowed = new Float32Array(buffer.length);
+      for (let i = 0; i < buffer.length; i++) {
+        const w = 0.54 - 0.46 * Math.cos(2 * Math.PI * i / (buffer.length - 1)); // Hamming window
+        windowed[i] = buffer[i] * w;
+      }
+      
+      // Perform FFT
+      const spectrum = this.fft.forward(windowed);
+      if (!spectrum || spectrum.length === 0) {
+        return { frequency: 0, confidence: 0 };
+      }
+      
+      const magnitudes = new Float32Array(spectrum.length / 2);
+    
+    // Calculate magnitude spectrum
+    for (let i = 0; i < magnitudes.length; i++) {
+      const real = spectrum[2 * i];
+      const imag = spectrum[2 * i + 1];
+      magnitudes[i] = Math.sqrt(real * real + imag * imag);
+    }
+    
+    // Find peak in the vocal range (80-800 Hz for typical voices)
+    const nyquist = this.sampleRate / 2;
+    const binFreqResolution = nyquist / magnitudes.length;
+    const minBin = Math.max(1, Math.floor(80 / binFreqResolution));
+    const maxBin = Math.min(magnitudes.length - 1, Math.floor(800 / binFreqResolution));
+    
+    let peakBin = minBin;
+    let peakMagnitude = magnitudes[minBin];
+    
+    for (let i = minBin; i < Math.min(maxBin, magnitudes.length); i++) {
+      if (magnitudes[i] > peakMagnitude) {
+        peakMagnitude = magnitudes[i];
+        peakBin = i;
+      }
+    }
+    
+    // Convert bin to frequency
+    const frequency = peakBin * binFreqResolution;
+    
+    // Calculate confidence based on peak prominence
+    const avgMagnitude = magnitudes.slice(minBin, maxBin).reduce((sum, val) => sum + val, 0) / (maxBin - minBin);
+    const confidence = Math.min(1.0, peakMagnitude / (avgMagnitude + 1e-10));
+    
+    // Return 0 if confidence is too low or frequency is unreasonable
+    if (confidence < 0.3 || frequency < 50 || frequency > 1000) {
+      return { frequency: 0, confidence: 0 };
+    }
+    
+    return { frequency, confidence };
+    } catch (error) {
+      // If FFT fails, return 0
+      return { frequency: 0, confidence: 0 };
+    }
   }
 }
 

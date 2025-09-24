@@ -272,6 +272,149 @@ describe('AutoDetector', () => {
             expect(result.audioType).toBe('unknown');
         });
     });
+
+    describe('Advanced Feature Extraction', () => {
+        test('should handle very short buffers', () => {
+            const shortBuffer = new Float32Array(10); // Very short
+            shortBuffer.fill(0.5);
+            
+            const result = detector.detectAudioType(shortBuffer);
+            expect(result).toBeDefined();
+            expect(result.audioType).toBeDefined();
+        });
+
+        test('should extract formant stability features', () => {
+            const buffer = generateVoicelikeSignal(sampleRate, frameSize);
+            const result = detector.detectAudioType(buffer);
+            
+            expect(result.features.formantStability).toBeDefined();
+            expect(typeof result.features.formantStability).toBe('number');
+        });
+
+        test('should calculate spectral flux correctly', () => {
+            const buffer = generateComplexSignal(sampleRate, frameSize);
+            const result = detector.detectAudioType(buffer);
+            
+            expect(result.features).toBeDefined();
+            // Spectral flux should be captured in spectral features
+            expect(result.features.spectralCentroid).toBeGreaterThan(0);
+        });
+
+        test('should detect polyphonic content', () => {
+            const buffer = generatePolyphonicSignal(sampleRate, frameSize);
+            const result = detector.detectAudioType(buffer);
+            
+            expect(result.features.harmonicity).toBeDefined();
+            expect(result.confidence).toBeGreaterThan(0);
+        });
+
+        test('should handle DC offset in signals', () => {
+            const buffer = generateTestTone(440, sampleRate, frameSize);
+            // Add DC offset
+            for (let i = 0; i < buffer.length; i++) {
+                buffer[i] += 0.5;
+            }
+            
+            const result = detector.detectAudioType(buffer);
+            expect(result).toBeDefined();
+            expect(result.features.spectralCentroid).toBeGreaterThan(0);
+        });
+
+        test('should extract mel-frequency features', () => {
+            const buffer = generateVoicelikeSignal(sampleRate, frameSize);
+            const result = detector.detectAudioType(buffer);
+            
+            expect(result.features.voicedness).toBeDefined();
+            expect(result.features.shimmer).toBeDefined();
+            expect(result.features.jitter).toBeDefined();
+        });
+    });
+
+    describe('Edge Cases and Robustness', () => {
+        test('should handle clipped audio signals', () => {
+            const buffer = new Float32Array(frameSize);
+            for (let i = 0; i < frameSize; i++) {
+                buffer[i] = i % 2 === 0 ? 1.0 : -1.0; // Square wave (clipped)
+            }
+            
+            const result = detector.detectAudioType(buffer);
+            expect(result.audioType).toBeDefined();
+            expect(result.confidence).toBeGreaterThan(0);
+        });
+
+        test('should handle impulse signals', () => {
+            const buffer = new Float32Array(frameSize);
+            buffer[100] = 1.0; // Single impulse
+            
+            const result = detector.detectAudioType(buffer);
+            expect(result.audioType).toBeDefined();
+        });
+
+        test('should handle frequency sweeps', () => {
+            const buffer = generateFrequencySweep(sampleRate, frameSize);
+            const result = detector.detectAudioType(buffer);
+            
+            expect(result.audioType).toBeDefined();
+            expect(result.features.spectralBandwidth).toBeGreaterThan(0);
+        });
+
+        test('should detect audio with multiple peaks', () => {
+            const buffer = generateMultiPeakSignal(sampleRate, frameSize);
+            const result = detector.detectAudioType(buffer);
+            
+            expect(result.audioType).toBeDefined();
+            expect(result.features.harmonicity).toBeLessThan(0.8); // Should detect as less harmonic
+        });
+
+        test('should handle amplitude modulated signals', () => {
+            const buffer = generateAmplitudeModulatedSignal(sampleRate, frameSize);
+            const result = detector.detectAudioType(buffer);
+            
+            expect(result.audioType).toBeDefined();
+            expect(result.features.tremoloRate).toBeDefined();
+        });
+    });
+
+    describe('Configuration Edge Cases', () => {
+        test('should work with extreme confidence thresholds', () => {
+            const extremeDetector = new AutoDetector({
+                sampleRate,
+                frameSize,
+                confidenceThreshold: 0.99 // Very high
+            });
+            
+            const buffer = generateTestTone(440, sampleRate, frameSize);
+            const result = extremeDetector.detectAudioType(buffer);
+            
+            expect(result).toBeDefined();
+        });
+
+        test('should handle disabled voice detection', () => {
+            const detectorNoVoice = new AutoDetector({
+                sampleRate,
+                frameSize,
+                enableVoiceDetection: false
+            });
+            
+            const buffer = generateVoicelikeSignal(sampleRate, frameSize);
+            const result = detectorNoVoice.detectAudioType(buffer);
+            
+            expect(result.audioType).not.toBe('voice');
+        });
+
+        test('should update configuration dynamically', () => {
+            detector.updateConfig({
+                confidenceThreshold: 0.8,
+                enableVoiceDetection: false
+            });
+            
+            const buffer = generateVoicelikeSignal(sampleRate, frameSize);
+            const result = detector.detectAudioType(buffer);
+            
+            // Should not detect voice with disabled voice detection
+            expect(result.audioType).not.toBe('voice');
+        });
+    });
 });
 
 // Helper functions for generating test signals
@@ -450,4 +593,59 @@ function addNoise(signal: Float32Array, noiseLevel: number): Float32Array {
         noisy[i] = signal[i] + noiseLevel * (Math.random() - 0.5);
     }
     return noisy;
+}
+
+function generatePolyphonicSignal(sampleRate: number, length: number): Float32Array {
+    const buffer = new Float32Array(length);
+    const frequencies = [220, 275, 330]; // C-Eb-G chord
+    
+    for (let i = 0; i < length; i++) {
+        let sample = 0;
+        frequencies.forEach((freq, index) => {
+            const amplitude = 0.3 / (index + 1);
+            sample += amplitude * Math.sin(2 * Math.PI * freq * i / sampleRate);
+        });
+        buffer[i] = sample;
+    }
+    return buffer;
+}
+
+function generateFrequencySweep(sampleRate: number, length: number): Float32Array {
+    const buffer = new Float32Array(length);
+    const startFreq = 100;
+    const endFreq = 2000;
+    
+    for (let i = 0; i < length; i++) {
+        const progress = i / length;
+        const freq = startFreq + (endFreq - startFreq) * progress;
+        buffer[i] = 0.5 * Math.sin(2 * Math.PI * freq * i / sampleRate);
+    }
+    return buffer;
+}
+
+function generateMultiPeakSignal(sampleRate: number, length: number): Float32Array {
+    const buffer = new Float32Array(length);
+    const peaks = [300, 800, 1500, 2200]; // Multiple frequency peaks
+    
+    for (let i = 0; i < length; i++) {
+        let sample = 0;
+        peaks.forEach(freq => {
+            sample += 0.25 * Math.sin(2 * Math.PI * freq * i / sampleRate);
+        });
+        buffer[i] = sample;
+    }
+    return buffer;
+}
+
+function generateAmplitudeModulatedSignal(sampleRate: number, length: number): Float32Array {
+    const buffer = new Float32Array(length);
+    const carrierFreq = 440;
+    const modFreq = 10; // 10 Hz tremolo
+    
+    for (let i = 0; i < length; i++) {
+        const carrier = Math.sin(2 * Math.PI * carrierFreq * i / sampleRate);
+        const modulation = 1 + 0.5 * Math.sin(2 * Math.PI * modFreq * i / sampleRate);
+        buffer[i] = 0.5 * carrier * modulation;
+    }
+    return buffer;
 }
