@@ -483,6 +483,10 @@ All Critical Bugs Fixed:
         let isAnalyzing = false;
         let analysisCount = 0;
         
+        // Waveform display buffer for scrolling effect
+        let waveformHistory = new Array(200).fill(0);
+        let waveformTime = 0;
+        
         function initAudio() {
             if (!audioContext) {
                 audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -493,6 +497,551 @@ All Critical Bugs Fixed:
             if (currentSource) {
                 currentSource.stop();
                 currentSource = null;
+            }
+        }
+        
+        // Microphone Analysis Functions - Moved here to be available for onclick
+        async function startMicrophoneAnalysis() {
+            try {
+                // Initialize audio context
+                initAudio();
+                if (audioContext.state === 'suspended') {
+                    await audioContext.resume();
+                }
+                
+                // Get microphone access
+                microphoneStream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: { 
+                        echoCancellation: false,
+                        noiseSuppression: false,
+                        autoGainControl: false,
+                        sampleRate: 44100
+                    } 
+                });
+                
+                // Create analyzer node
+                analyzerNode = audioContext.createAnalyser();
+                analyzerNode.fftSize = 2048;
+                analyzerNode.smoothingTimeConstant = 0.1;
+                
+                // Connect microphone to analyzer
+                microphoneSource = audioContext.createMediaStreamSource(microphoneStream);
+                microphoneSource.connect(analyzerNode);
+                
+                // Start analysis
+                isAnalyzing = true;
+                analysisCount = 0;
+                
+                // Update UI
+                document.getElementById('startMicBtn').disabled = true;
+                document.getElementById('stopMicBtn').disabled = false;
+                document.getElementById('detectionStatus').innerHTML = `🎤 LIVE: Listening for instruments and vocals...
+                
+Status: Active
+Sample Rate: 44.1kHz
+Buffer Size: 2048 samples
+Analysis: Real-time`;
+                
+                // Start real-time analysis loop
+                analyzeAudioFrame();
+                
+                console.log("🎤 Microphone analysis started");
+                
+            } catch (error) {
+                console.error("Microphone access error:", error);
+                document.getElementById('detectionStatus').innerHTML = `❌ Microphone Error: ${error.message}
+                
+Possible causes:
+• Microphone permission denied
+• No microphone available
+• Browser security restrictions
+                
+Solution: Allow microphone access and try again.`;
+            }
+        }
+        
+        function stopMicrophoneAnalysis() {
+            isAnalyzing = false;
+            
+            // Stop animation frame
+            if (animationFrame) {
+                cancelAnimationFrame(animationFrame);
+            }
+            
+            // Close microphone stream
+            if (microphoneStream) {
+                microphoneStream.getTracks().forEach(track => track.stop());
+                microphoneStream = null;
+            }
+            
+            // Disconnect audio nodes
+            if (microphoneSource) {
+                microphoneSource.disconnect();
+                microphoneSource = null;
+            }
+            
+            if (analyzerNode) {
+                analyzerNode = null;
+            }
+            
+            // Update UI
+            document.getElementById('startMicBtn').disabled = false;
+            document.getElementById('stopMicBtn').disabled = true;
+            document.getElementById('detectionStatus').innerHTML = `⏹️ STOPPED: Microphone analysis stopped
+            
+Total Analyses: ${analysisCount}
+Status: Inactive
+Ready to start again`;
+            
+            // Clear visualization
+            const canvas = document.getElementById('audioVisualization');
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#0a0e27';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Reset waveform history
+            waveformHistory = new Array(200).fill(0);
+            waveformTime = 0;
+            
+            console.log("🛑 Microphone analysis stopped");
+        }
+        
+        function clearLiveResults() {
+            document.getElementById('liveResults').textContent = 'Live analysis results cleared. Start microphone to see new results...';
+            analysisCount = 0;
+        }
+        
+        function analyzeAudioFrame() {
+            if (!isAnalyzing || !analyzerNode) return;
+            
+            // Get frequency domain data
+            const frequencyData = new Uint8Array(analyzerNode.frequencyBinCount);
+            analyzerNode.getByteFrequencyData(frequencyData);
+            
+            // Get time domain data for waveform
+            const timeData = new Uint8Array(analyzerNode.frequencyBinCount);
+            analyzerNode.getByteTimeDomainData(timeData);
+            
+            // Analyze audio and detect type
+            const analysis = performAudioAnalysis(frequencyData, timeData);
+            
+            // Update visualizations
+            updateAudioVisualization(timeData, frequencyData);
+            
+            // Update results if significant audio detected
+            if (analysis.amplitude > 0.1) {
+                analysisCount++;
+                updateLiveResults(analysis);
+            }
+            
+            // Continue analysis loop
+            animationFrame = requestAnimationFrame(analyzeAudioFrame);
+        }
+        
+        function performAudioAnalysis(frequencyData, timeData) {
+            // Calculate basic audio properties
+            let totalAmplitude = 0;
+            let maxFrequencyIndex = 0;
+            let maxFrequencyValue = 0;
+            
+            // Find peak frequency and calculate total amplitude
+            for (let i = 0; i < frequencyData.length; i++) {
+                totalAmplitude += frequencyData[i];
+                if (frequencyData[i] > maxFrequencyValue) {
+                    maxFrequencyValue = frequencyData[i];
+                    maxFrequencyIndex = i;
+                }
+            }
+            
+            const amplitude = totalAmplitude / (frequencyData.length * 255);
+            const fundamentalFreq = (maxFrequencyIndex * audioContext.sampleRate) / (2 * frequencyData.length);
+            
+            // Calculate spectral characteristics for classification
+            const spectralCentroid = calculateSpectralCentroid(frequencyData);
+            const harmonicRatio = calculateHarmonicRatio(frequencyData, maxFrequencyIndex);
+            const zeroCrossingRate = calculateZeroCrossingRate(timeData);
+            const spectralRolloff = calculateSpectralRolloff(frequencyData);
+            
+            // Perform audio type detection
+            const audioType = classifyAudioType(spectralCentroid, harmonicRatio, zeroCrossingRate, fundamentalFreq, amplitude);
+            
+            return {
+                amplitude,
+                fundamentalFreq,
+                spectralCentroid,
+                harmonicRatio,
+                zeroCrossingRate,
+                spectralRolloff,
+                audioType,
+                confidence: audioType.confidence,
+                timestamp: Date.now()
+            };
+        }
+        
+        function calculateSpectralCentroid(frequencyData) {
+            let numerator = 0;
+            let denominator = 0;
+            
+            for (let i = 0; i < frequencyData.length; i++) {
+                numerator += i * frequencyData[i];
+                denominator += frequencyData[i];
+            }
+            
+            return denominator > 0 ? (numerator / denominator) * (audioContext.sampleRate / (2 * frequencyData.length)) : 0;
+        }
+        
+        function calculateHarmonicRatio(frequencyData, fundamentalIndex) {
+            if (fundamentalIndex < 1) return 0;
+            
+            const fundamental = frequencyData[fundamentalIndex];
+            let harmonics = 0;
+            let noise = 0;
+            
+            // Check for harmonics at 2f, 3f, 4f, etc.
+            for (let i = 0; i < frequencyData.length; i++) {
+                const ratio = i / fundamentalIndex;
+                if (Math.abs(ratio - Math.round(ratio)) < 0.1 && ratio >= 2) {
+                    harmonics += frequencyData[i];
+                } else {
+                    noise += frequencyData[i];
+                }
+            }
+            
+            return noise > 0 ? harmonics / noise : 0;
+        }
+        
+        function calculateZeroCrossingRate(timeData) {
+            let crossings = 0;
+            const center = 128; // Center point for unsigned 8-bit data
+            
+            for (let i = 1; i < timeData.length; i++) {
+                if ((timeData[i-1] < center && timeData[i] >= center) || 
+                    (timeData[i-1] >= center && timeData[i] < center)) {
+                    crossings++;
+                }
+            }
+            
+            return crossings / timeData.length;
+        }
+        
+        function calculateSpectralRolloff(frequencyData) {
+            const totalEnergy = frequencyData.reduce((sum, val) => sum + val, 0);
+            const threshold = totalEnergy * 0.85;
+            
+            let cumulativeEnergy = 0;
+            for (let i = 0; i < frequencyData.length; i++) {
+                cumulativeEnergy += frequencyData[i];
+                if (cumulativeEnergy >= threshold) {
+                    return (i * audioContext.sampleRate) / (2 * frequencyData.length);
+                }
+            }
+            
+            return audioContext.sampleRate / 4; // Nyquist frequency as fallback
+        }
+        
+        function classifyAudioType(spectralCentroid, harmonicRatio, zeroCrossingRate, frequency, amplitude) {
+            // Define thresholds for classification
+            const vocalFreqMin = 80;   // Minimum vocal frequency
+            const vocalFreqMax = 1000; // Maximum fundamental vocal frequency
+            const vocalCentroidMax = 3000; // Vocals typically have lower spectral centroid
+            
+            let scores = {
+                vocal: 0,
+                string: 0,
+                keyboard: 0,
+                wind: 0,
+                percussion: 0,
+                silence: 0
+            };
+            
+            // Silence detection
+            if (amplitude < 0.05) {
+                scores.silence = 1.0;
+                return { type: 'silence', confidence: 1.0, scores };
+            }
+            
+            // Vocal detection (enhanced)
+            if (frequency >= vocalFreqMin && frequency <= vocalFreqMax && 
+                spectralCentroid < vocalCentroidMax && harmonicRatio > 1.0) {
+                scores.vocal += 0.4;
+            }
+            
+            // Additional vocal indicators
+            if (spectralCentroid < 2000 && harmonicRatio > 0.5 && zeroCrossingRate < 0.1) {
+                scores.vocal += 0.3; // Clear harmonic structure typical of voice
+            }
+            
+            if (frequency >= 100 && frequency <= 500) {
+                scores.vocal += 0.2; // Typical vocal range
+            }
+            
+            // String instrument detection
+            if (harmonicRatio > 2.0 && spectralCentroid > 1000 && spectralCentroid < 4000) {
+                scores.string += 0.4;
+            }
+            
+            if (zeroCrossingRate > 0.02 && zeroCrossingRate < 0.15) {
+                scores.string += 0.3; // String instruments have moderate ZCR
+            }
+            
+            // Keyboard/Piano detection
+            if (harmonicRatio > 1.5 && spectralCentroid > 800 && spectralCentroid < 3000) {
+                scores.keyboard += 0.3;
+            }
+            
+            if (amplitude > 0.3) {
+                scores.keyboard += 0.2; // Pianos can be loud
+            }
+            
+            // Wind instrument detection
+            if (harmonicRatio > 1.0 && spectralCentroid < 2500 && zeroCrossingRate < 0.05) {
+                scores.wind += 0.4;
+            }
+            
+            if (frequency >= 200 && frequency <= 2000) {
+                scores.wind += 0.2;
+            }
+            
+            // Percussion detection
+            if (zeroCrossingRate > 0.2 || spectralCentroid > 4000) {
+                scores.percussion += 0.4;
+            }
+            
+            if (harmonicRatio < 0.5) {
+                scores.percussion += 0.3; // Less harmonic content
+            }
+            
+            // Find the highest scoring type
+            let maxScore = 0;
+            let detectedType = 'unknown';
+            
+            for (const [type, score] of Object.entries(scores)) {
+                if (score > maxScore) {
+                    maxScore = score;
+                    detectedType = type;
+                }
+            }
+            
+            return {
+                type: detectedType,
+                confidence: Math.min(maxScore, 1.0),
+                scores
+            };
+        }
+        
+        function updateLiveResults(analysis) {
+            const resultsDiv = document.getElementById('liveResults');
+            const timestamp = new Date(analysis.timestamp).toLocaleTimeString();
+            
+            // Determine emoji based on detected type
+            const typeEmojis = {
+                vocal: '🎤',
+                string: '🎸',
+                keyboard: '🎹',
+                wind: '🎺',
+                percussion: '🥁',
+                silence: '🔇',
+                unknown: '❓'
+            };
+            
+            const emoji = typeEmojis[analysis.audioType.type] || '❓';
+            const confidencePercent = (analysis.confidence * 100).toFixed(1);
+            
+            const analysisText = `${emoji} Analysis #${analysisCount} [${timestamp}]:
+================================================
+🎯 DETECTED: ${analysis.audioType.type.toUpperCase()} (${confidencePercent}% confidence)
+
+📊 Audio Properties:
+• Fundamental Frequency: ${analysis.fundamentalFreq.toFixed(1)} Hz
+• Amplitude: ${(analysis.amplitude * 100).toFixed(1)}%
+• Spectral Centroid: ${analysis.spectralCentroid.toFixed(1)} Hz
+• Harmonic Ratio: ${analysis.harmonicRatio.toFixed(2)}
+• Zero Crossing Rate: ${analysis.zeroCrossingRate.toFixed(3)}
+• Spectral Rolloff: ${analysis.spectralRolloff.toFixed(1)} Hz
+
+🎵 Classification Scores:
+• Vocal: ${(analysis.audioType.scores.vocal * 100).toFixed(1)}%
+• String: ${(analysis.audioType.scores.string * 100).toFixed(1)}%
+• Keyboard: ${(analysis.audioType.scores.keyboard * 100).toFixed(1)}%
+• Wind: ${(analysis.audioType.scores.wind * 100).toFixed(1)}%
+• Percussion: ${(analysis.audioType.scores.percussion * 100).toFixed(1)}%
+
+---`;
+            
+            // Prepend new result (show latest first)
+            resultsDiv.textContent = analysisText + '\n' + resultsDiv.textContent;
+            
+            // Limit results to prevent memory issues
+            const lines = resultsDiv.textContent.split('\n');
+            if (lines.length > 200) {
+                resultsDiv.textContent = lines.slice(0, 200).join('\n');
+            }
+        }
+        
+        function updateAudioVisualization(timeData, frequencyData) {
+            const canvas = document.getElementById('audioVisualization');
+            const ctx = canvas.getContext('2d');
+            
+            // Dark background like medical monitor
+            ctx.fillStyle = '#0a0e27';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw grid lines for medical monitor effect
+            ctx.strokeStyle = 'rgba(0, 255, 100, 0.1)';
+            ctx.lineWidth = 1;
+            
+            // Vertical grid lines
+            for (let x = 0; x < canvas.width; x += 20) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+            
+            // Horizontal grid lines
+            for (let y = 0; y < canvas.height; y += 20) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+            
+            // Draw center line (stronger)
+            ctx.strokeStyle = 'rgba(0, 255, 100, 0.3)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(0, canvas.height / 2);
+            ctx.lineTo(canvas.width, canvas.height / 2);
+            ctx.stroke();
+            
+            // Calculate current amplitude from time data
+            let sum = 0;
+            for (let i = 0; i < timeData.length; i++) {
+                sum += Math.abs(timeData[i] - 128);
+            }
+            const avgAmplitude = sum / timeData.length / 128;
+            
+            // Get dominant frequency for wave generation
+            let maxFreqIndex = 0;
+            let maxFreqValue = 0;
+            for (let i = 1; i < frequencyData.length / 4; i++) {
+                if (frequencyData[i] > maxFreqValue) {
+                    maxFreqValue = frequencyData[i];
+                    maxFreqIndex = i;
+                }
+            }
+            
+            // Calculate actual frequency
+            const nyquist = audioContext ? audioContext.sampleRate / 2 : 22050;
+            const detectedFreq = (maxFreqIndex * nyquist) / (frequencyData.length / 2);
+            
+            // Update waveform history (shift left and add new value)
+            waveformHistory.shift();
+            
+            // Generate smooth sine wave based on detected frequency and amplitude
+            if (maxFreqValue > 30) { // If there's significant signal
+                // Use detected frequency to modulate the wave
+                waveformTime += (detectedFreq / 1000) * 0.5; // Scale frequency for visual effect
+                const waveValue = Math.sin(waveformTime) * avgAmplitude * 0.8;
+                waveformHistory.push(waveValue);
+            } else {
+                // No signal - flat line
+                waveformHistory.push(0);
+            }
+            
+            // Draw the scrolling waveform (like ECG/medical monitor)
+            ctx.strokeStyle = '#00ff64'; // Green like medical monitor
+            ctx.shadowColor = '#00ff64';
+            ctx.shadowBlur = 8;
+            ctx.lineWidth = 2;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.beginPath();
+            
+            const pointSpacing = canvas.width / waveformHistory.length;
+            
+            for (let i = 0; i < waveformHistory.length; i++) {
+                const x = i * pointSpacing;
+                const y = canvas.height / 2 - (waveformHistory[i] * canvas.height * 0.35);
+                
+                if (i === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    // Use smooth curves between points
+                    const prevX = (i - 1) * pointSpacing;
+                    const prevY = canvas.height / 2 - (waveformHistory[i - 1] * canvas.height * 0.35);
+                    const cpX = (prevX + x) / 2;
+                    const cpY = (prevY + y) / 2;
+                    ctx.quadraticCurveTo(prevX, prevY, cpX, cpY);
+                }
+            }
+            
+            // Draw to the edge
+            const lastY = canvas.height / 2 - (waveformHistory[waveformHistory.length - 1] * canvas.height * 0.35);
+            ctx.lineTo(canvas.width, lastY);
+            ctx.stroke();
+            
+            // Reset shadow for other elements
+            ctx.shadowColor = 'transparent';
+            ctx.shadowBlur = 0;
+            
+            // Add fade effect on the left side (older data fades)
+            const fadeGradient = ctx.createLinearGradient(0, 0, canvas.width * 0.3, 0);
+            fadeGradient.addColorStop(0, 'rgba(10, 14, 39, 1)');
+            fadeGradient.addColorStop(1, 'rgba(10, 14, 39, 0)');
+            ctx.fillStyle = fadeGradient;
+            ctx.fillRect(0, 0, canvas.width * 0.3, canvas.height);
+            
+            // Draw scanning line effect (like radar)
+            const scanPosition = (Date.now() % 3000) / 3000 * canvas.width;
+            ctx.strokeStyle = 'rgba(0, 255, 100, 0.5)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(scanPosition, 0);
+            ctx.lineTo(scanPosition, canvas.height);
+            ctx.stroke();
+            
+            // Draw frequency information overlay
+            if (maxFreqValue > 30) { // Only show if there's significant signal
+                ctx.fillStyle = 'rgba(66, 153, 225, 0.9)';
+                ctx.fillRect(10, 10, 180, 60);
+                
+                ctx.fillStyle = 'white';
+                ctx.font = 'bold 14px Arial';
+                ctx.fillText('🎵 Live Frequency', 15, 28);
+                
+                ctx.font = 'bold 16px Arial';
+                ctx.fillStyle = '#2d3748';
+                ctx.fillText(`${detectedFreq.toFixed(1)} Hz`, 15, 48);
+                
+                ctx.font = '12px Arial';
+                ctx.fillStyle = '#4a5568';
+                ctx.fillText(`Amplitude: ${((maxFreqValue / 255) * 100).toFixed(0)}%`, 15, 63);
+                
+                // Draw frequency indicator line on waveform
+                if (detectedFreq > 20 && detectedFreq < 2000) {
+                    ctx.strokeStyle = 'rgba(237, 137, 54, 0.8)';
+                    ctx.lineWidth = 1;
+                    ctx.setLineDash([2, 2]);
+                    
+                    // Calculate approximate position based on frequency (visual approximation)
+                    const freqPosition = Math.min((detectedFreq / 2000) * canvas.width, canvas.width - 10);
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(freqPosition, 10);
+                    ctx.lineTo(freqPosition, canvas.height - 10);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                    
+                    // Add frequency label
+                    ctx.fillStyle = 'rgba(237, 137, 54, 0.9)';
+                    ctx.fillRect(freqPosition - 25, canvas.height - 25, 50, 15);
+                    ctx.fillStyle = 'white';
+                    ctx.font = '10px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(`${detectedFreq.toFixed(0)}Hz`, freqPosition, canvas.height - 15);
+                    ctx.textAlign = 'start';
+                }
             }
         }
         
@@ -1304,420 +1853,6 @@ Status Summary:
 ✅ Comprehensive test coverage structure
 ✅ Clear separation of concerns by phase
 🚀 Ready for continued development`;
-        }
-        
-        // Microphone Analysis Functions
-        async function startMicrophoneAnalysis() {
-            try {
-                // Initialize audio context
-                initAudio();
-                if (audioContext.state === 'suspended') {
-                    await audioContext.resume();
-                }
-                
-                // Get microphone access
-                microphoneStream = await navigator.mediaDevices.getUserMedia({ 
-                    audio: { 
-                        echoCancellation: false,
-                        noiseSuppression: false,
-                        autoGainControl: false,
-                        sampleRate: 44100
-                    } 
-                });
-                
-                // Create analyzer node
-                analyzerNode = audioContext.createAnalyser();
-                analyzerNode.fftSize = 2048;
-                analyzerNode.smoothingTimeConstant = 0.1;
-                
-                // Connect microphone to analyzer
-                microphoneSource = audioContext.createMediaStreamSource(microphoneStream);
-                microphoneSource.connect(analyzerNode);
-                
-                // Start analysis
-                isAnalyzing = true;
-                analysisCount = 0;
-                
-                // Update UI
-                document.getElementById('startMicBtn').disabled = true;
-                document.getElementById('stopMicBtn').disabled = false;
-                document.getElementById('detectionStatus').innerHTML = `🎤 LIVE: Listening for instruments and vocals...
-                
-Status: Active
-Sample Rate: 44.1kHz
-Buffer Size: 2048 samples
-Analysis: Real-time`;
-                
-                // Start real-time analysis loop
-                analyzeAudioFrame();
-                
-                console.log("🎤 Microphone analysis started");
-                
-            } catch (error) {
-                console.error("Microphone access error:", error);
-                document.getElementById('detectionStatus').innerHTML = `❌ Microphone Error: ${error.message}
-                
-Possible causes:
-• Microphone permission denied
-• No microphone available
-• Browser security restrictions
-                
-Solution: Allow microphone access and try again.`;
-            }
-        }
-        
-        function stopMicrophoneAnalysis() {
-            isAnalyzing = false;
-            
-            // Stop animation frame
-            if (animationFrame) {
-                cancelAnimationFrame(animationFrame);
-            }
-            
-            // Close microphone stream
-            if (microphoneStream) {
-                microphoneStream.getTracks().forEach(track => track.stop());
-                microphoneStream = null;
-            }
-            
-            // Disconnect audio nodes
-            if (microphoneSource) {
-                microphoneSource.disconnect();
-                microphoneSource = null;
-            }
-            
-            if (analyzerNode) {
-                analyzerNode = null;
-            }
-            
-            // Update UI
-            document.getElementById('startMicBtn').disabled = false;
-            document.getElementById('stopMicBtn').disabled = true;
-            document.getElementById('detectionStatus').innerHTML = `⏹️ STOPPED: Microphone analysis stopped
-            
-Total Analyses: ${analysisCount}
-Status: Inactive
-Ready to start again`;
-            
-            // Clear visualization
-            const canvas = document.getElementById('audioVisualization');
-            const ctx = canvas.getContext('2d');
-            ctx.fillStyle = '#f7fafc';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            console.log("🛑 Microphone analysis stopped");
-        }
-        
-        function analyzeAudioFrame() {
-            if (!isAnalyzing || !analyzerNode) return;
-            
-            // Get frequency domain data
-            const frequencyData = new Uint8Array(analyzerNode.frequencyBinCount);
-            analyzerNode.getByteFrequencyData(frequencyData);
-            
-            // Get time domain data for waveform
-            const timeData = new Uint8Array(analyzerNode.frequencyBinCount);
-            analyzerNode.getByteTimeDomainData(timeData);
-            
-            // Analyze audio and detect type
-            const analysis = performAudioAnalysis(frequencyData, timeData);
-            
-            // Update visualizations
-            updateAudioVisualization(timeData, frequencyData);
-            
-            // Update results if significant audio detected
-            if (analysis.amplitude > 0.1) {
-                analysisCount++;
-                updateLiveResults(analysis);
-            }
-            
-            // Continue analysis loop
-            animationFrame = requestAnimationFrame(analyzeAudioFrame);
-        }
-        
-        function performAudioAnalysis(frequencyData, timeData) {
-            // Calculate basic audio properties
-            let totalAmplitude = 0;
-            let maxFrequencyIndex = 0;
-            let maxFrequencyValue = 0;
-            
-            // Find peak frequency and calculate total amplitude
-            for (let i = 0; i < frequencyData.length; i++) {
-                totalAmplitude += frequencyData[i];
-                if (frequencyData[i] > maxFrequencyValue) {
-                    maxFrequencyValue = frequencyData[i];
-                    maxFrequencyIndex = i;
-                }
-            }
-            
-            const amplitude = totalAmplitude / (frequencyData.length * 255);
-            const fundamentalFreq = (maxFrequencyIndex * audioContext.sampleRate) / (2 * frequencyData.length);
-            
-            // Calculate spectral characteristics for classification
-            const spectralCentroid = calculateSpectralCentroid(frequencyData);
-            const harmonicRatio = calculateHarmonicRatio(frequencyData, maxFrequencyIndex);
-            const zeroCrossingRate = calculateZeroCrossingRate(timeData);
-            const spectralRolloff = calculateSpectralRolloff(frequencyData);
-            
-            // Perform audio type detection
-            const audioType = classifyAudioType(spectralCentroid, harmonicRatio, zeroCrossingRate, fundamentalFreq, amplitude);
-            
-            return {
-                amplitude,
-                fundamentalFreq,
-                spectralCentroid,
-                harmonicRatio,
-                zeroCrossingRate,
-                spectralRolloff,
-                audioType,
-                confidence: audioType.confidence,
-                timestamp: Date.now()
-            };
-        }
-        
-        function calculateSpectralCentroid(frequencyData) {
-            let numerator = 0;
-            let denominator = 0;
-            
-            for (let i = 0; i < frequencyData.length; i++) {
-                numerator += i * frequencyData[i];
-                denominator += frequencyData[i];
-            }
-            
-            return denominator > 0 ? (numerator / denominator) * (audioContext.sampleRate / (2 * frequencyData.length)) : 0;
-        }
-        
-        function calculateHarmonicRatio(frequencyData, fundamentalIndex) {
-            if (fundamentalIndex < 1) return 0;
-            
-            const fundamental = frequencyData[fundamentalIndex];
-            let harmonics = 0;
-            let noise = 0;
-            
-            // Check for harmonics at 2f, 3f, 4f, etc.
-            for (let i = 0; i < frequencyData.length; i++) {
-                const ratio = i / fundamentalIndex;
-                if (Math.abs(ratio - Math.round(ratio)) < 0.1 && ratio >= 2) {
-                    harmonics += frequencyData[i];
-                } else {
-                    noise += frequencyData[i];
-                }
-            }
-            
-            return noise > 0 ? harmonics / noise : 0;
-        }
-        
-        function calculateZeroCrossingRate(timeData) {
-            let crossings = 0;
-            const center = 128; // Center point for unsigned 8-bit data
-            
-            for (let i = 1; i < timeData.length; i++) {
-                if ((timeData[i-1] < center && timeData[i] >= center) || 
-                    (timeData[i-1] >= center && timeData[i] < center)) {
-                    crossings++;
-                }
-            }
-            
-            return crossings / timeData.length;
-        }
-        
-        function calculateSpectralRolloff(frequencyData) {
-            const totalEnergy = frequencyData.reduce((sum, val) => sum + val, 0);
-            const threshold = totalEnergy * 0.85;
-            
-            let cumulativeEnergy = 0;
-            for (let i = 0; i < frequencyData.length; i++) {
-                cumulativeEnergy += frequencyData[i];
-                if (cumulativeEnergy >= threshold) {
-                    return (i * audioContext.sampleRate) / (2 * frequencyData.length);
-                }
-            }
-            
-            return audioContext.sampleRate / 4; // Nyquist frequency as fallback
-        }
-        
-        function classifyAudioType(spectralCentroid, harmonicRatio, zeroCrossingRate, frequency, amplitude) {
-            // Define thresholds for classification
-            const vocalFreqMin = 80;   // Minimum vocal frequency
-            const vocalFreqMax = 1000; // Maximum fundamental vocal frequency
-            const vocalCentroidMax = 3000; // Vocals typically have lower spectral centroid
-            
-            let scores = {
-                vocal: 0,
-                string: 0,
-                keyboard: 0,
-                wind: 0,
-                percussion: 0,
-                silence: 0
-            };
-            
-            // Silence detection
-            if (amplitude < 0.05) {
-                scores.silence = 1.0;
-                return { type: 'silence', confidence: 1.0, scores };
-            }
-            
-            // Vocal detection (enhanced)
-            if (frequency >= vocalFreqMin && frequency <= vocalFreqMax && 
-                spectralCentroid < vocalCentroidMax && harmonicRatio > 1.0) {
-                scores.vocal += 0.4;
-            }
-            
-            // Additional vocal indicators
-            if (spectralCentroid < 2000 && harmonicRatio > 0.5 && zeroCrossingRate < 0.1) {
-                scores.vocal += 0.3; // Clear harmonic structure typical of voice
-            }
-            
-            if (frequency >= 100 && frequency <= 500) {
-                scores.vocal += 0.2; // Typical vocal range
-            }
-            
-            // String instrument detection
-            if (harmonicRatio > 2.0 && spectralCentroid > 1000 && spectralCentroid < 4000) {
-                scores.string += 0.4;
-            }
-            
-            if (zeroCrossingRate > 0.02 && zeroCrossingRate < 0.15) {
-                scores.string += 0.3; // String instruments have moderate ZCR
-            }
-            
-            // Keyboard/Piano detection
-            if (harmonicRatio > 1.5 && spectralCentroid > 800 && spectralCentroid < 3000) {
-                scores.keyboard += 0.3;
-            }
-            
-            if (amplitude > 0.3) {
-                scores.keyboard += 0.2; // Pianos can be loud
-            }
-            
-            // Wind instrument detection
-            if (harmonicRatio > 1.0 && spectralCentroid < 2500 && zeroCrossingRate < 0.05) {
-                scores.wind += 0.4;
-            }
-            
-            if (frequency >= 200 && frequency <= 2000) {
-                scores.wind += 0.2;
-            }
-            
-            // Percussion detection
-            if (zeroCrossingRate > 0.2 || spectralCentroid > 4000) {
-                scores.percussion += 0.4;
-            }
-            
-            if (harmonicRatio < 0.5) {
-                scores.percussion += 0.3; // Less harmonic content
-            }
-            
-            // Find the highest scoring type
-            let maxScore = 0;
-            let detectedType = 'unknown';
-            
-            for (const [type, score] of Object.entries(scores)) {
-                if (score > maxScore) {
-                    maxScore = score;
-                    detectedType = type;
-                }
-            }
-            
-            return {
-                type: detectedType,
-                confidence: Math.min(maxScore, 1.0),
-                scores
-            };
-        }
-        
-        function updateAudioVisualization(timeData, frequencyData) {
-            const canvas = document.getElementById('audioVisualization');
-            const ctx = canvas.getContext('2d');
-            
-            // Clear canvas
-            ctx.fillStyle = '#f7fafc';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            // Draw waveform (top half)
-            ctx.strokeStyle = '#4299e1';
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            
-            const sliceWidth = canvas.width / timeData.length;
-            let x = 0;
-            
-            for (let i = 0; i < timeData.length; i++) {
-                const v = timeData[i] / 128.0;
-                const y = (v * canvas.height) / 4 + canvas.height / 4;
-                
-                if (i === 0) {
-                    ctx.moveTo(x, y);
-                } else {
-                    ctx.lineTo(x, y);
-                }
-                
-                x += sliceWidth;
-            }
-            ctx.stroke();
-            
-            // Draw frequency spectrum (bottom half)
-            ctx.fillStyle = '#48bb78';
-            const barWidth = canvas.width / (frequencyData.length / 4);
-            
-            for (let i = 0; i < frequencyData.length / 4; i++) {
-                const barHeight = (frequencyData[i] / 255) * (canvas.height / 2);
-                ctx.fillRect(i * barWidth, canvas.height - barHeight, barWidth, barHeight);
-            }
-        }
-        
-        function updateLiveResults(analysis) {
-            const resultsDiv = document.getElementById('liveResults');
-            const timestamp = new Date(analysis.timestamp).toLocaleTimeString();
-            
-            // Determine emoji based on detected type
-            const typeEmojis = {
-                vocal: '🎤',
-                string: '🎸',
-                keyboard: '🎹',
-                wind: '🎺',
-                percussion: '🥁',
-                silence: '🔇',
-                unknown: '❓'
-            };
-            
-            const emoji = typeEmojis[analysis.audioType.type] || '❓';
-            const confidencePercent = (analysis.confidence * 100).toFixed(1);
-            
-            const analysisText = `${emoji} Analysis #${analysisCount} [${timestamp}]:
-================================================
-🎯 DETECTED: ${analysis.audioType.type.toUpperCase()} (${confidencePercent}% confidence)
-
-📊 Audio Properties:
-• Fundamental Frequency: ${analysis.fundamentalFreq.toFixed(1)} Hz
-• Amplitude: ${(analysis.amplitude * 100).toFixed(1)}%
-• Spectral Centroid: ${analysis.spectralCentroid.toFixed(1)} Hz
-• Harmonic Ratio: ${analysis.harmonicRatio.toFixed(2)}
-• Zero Crossing Rate: ${analysis.zeroCrossingRate.toFixed(3)}
-• Spectral Rolloff: ${analysis.spectralRolloff.toFixed(1)} Hz
-
-🎵 Classification Scores:
-• Vocal: ${(analysis.audioType.scores.vocal * 100).toFixed(1)}%
-• String: ${(analysis.audioType.scores.string * 100).toFixed(1)}%
-• Keyboard: ${(analysis.audioType.scores.keyboard * 100).toFixed(1)}%
-• Wind: ${(analysis.audioType.scores.wind * 100).toFixed(1)}%
-• Percussion: ${(analysis.audioType.scores.percussion * 100).toFixed(1)}%
-
----`;
-            
-            // Prepend new result (show latest first)
-            resultsDiv.textContent = analysisText + '\n' + resultsDiv.textContent;
-            
-            // Limit results to prevent memory issues
-            const lines = resultsDiv.textContent.split('\n');
-            if (lines.length > 200) {
-                resultsDiv.textContent = lines.slice(0, 200).join('\n');
-            }
-        }
-        
-        function clearLiveResults() {
-            document.getElementById('liveResults').textContent = 'Live analysis results cleared. Start microphone to see new results...';
-            analysisCount = 0;
         }
         
         // Initialize with welcome message
