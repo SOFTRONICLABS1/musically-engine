@@ -231,8 +231,8 @@ export class AudioCapture extends EventEmitter {
       this.isInitialized = false;
     }
     
-    this.removeAllListeners();
     this.emit('destroyed');
+    this.removeAllListeners();
   }
   
   private ensureInitialized(): void {

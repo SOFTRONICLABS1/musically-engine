@@ -10,7 +10,7 @@
 import { YIN } from './YIN';
 import { Autocorrelation } from './Autocorrelation';
 import { HPS } from './HPS';
-import { FFT } from '../core/FFT';
+import { FFT } from './FFT';
 
 /**
  * Configuration for pitch voting system
@@ -163,11 +163,11 @@ export class PitchVoting {
             frameSize: this.config.frameSize
         });
         
-        this.hps = new HPS({
-            sampleRate: this.config.sampleRate,
-            frameSize: this.config.frameSize,
-            maxHarmonics: 5
-        });
+        this.hps = new HPS(
+            this.config.frameSize,
+            this.config.sampleRate,
+            5
+        );
         
         this.initializePerformanceTracking();
     }

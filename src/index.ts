@@ -8,6 +8,10 @@ export { EventEmitter } from './core/EventEmitter';
 export { AudioCapture } from './core/AudioCapture';
 export { BufferManager } from './core/BufferManager';
 
+// Music System exports
+export { BaseMusicSystem, WesternMusicSystem, CarnaticMusicSystem, HindustaniMusicSystem, createMusicSystem } from './musicSystems';
+export type { NoteInfo, IntervalInfo, ScaleInfo, ChordInfo } from './musicSystems';
+
 // Platform adapter interfaces
 export type { IPlatformAdapter } from './platforms/IPlatformAdapter';
 export { BasePlatformAdapter } from './platforms/IPlatformAdapter';
@@ -28,6 +32,7 @@ import { IPlatformAdapter } from './platforms/IPlatformAdapter';
 import { WebAudioAdapter } from './platforms/browser/WebAudioAdapter';
 import { NodeAudioAdapter } from './platforms/node/NodeAudioAdapter';
 import { PlatformDetection } from './utils/PlatformDetection';
+import { createMusicSystem, BaseMusicSystem } from './musicSystems';
 import { 
   EngineConfig, 
   Platform, 
@@ -35,7 +40,10 @@ import {
   AnalysisResult,
   AudioType,
   MusicSystem,
-  EngineError
+  EngineError,
+  WesternAnalysis,
+  CarnaticAnalysis,
+  HindustaniAnalysis
 } from './types';
 
 /**
@@ -46,6 +54,7 @@ export class MusicallyEngine extends EventEmitter {
   private audioCapture: AudioCapture;
   private adapter: IPlatformAdapter;
   private config: Required<EngineConfig>;
+  private musicSystem: BaseMusicSystem;
   
   constructor(config: Partial<EngineConfig> = {}) {
     super();
@@ -74,6 +83,9 @@ export class MusicallyEngine extends EventEmitter {
     
     // Create audio capture
     this.audioCapture = new AudioCapture(this.adapter);
+    
+    // Create music system
+    this.musicSystem = createMusicSystem(this.config.musicSystem, this.config.referencePitch);
     
     // Forward events from audio capture
     this.setupEventForwarding();
@@ -157,6 +169,7 @@ export class MusicallyEngine extends EventEmitter {
    */
   setMusicSystem(system: MusicSystem): void {
     this.config.musicSystem = system;
+    this.musicSystem = createMusicSystem(system, this.config.referencePitch);
     this.emit('config_change', { musicSystem: system });
   }
   
@@ -176,6 +189,7 @@ export class MusicallyEngine extends EventEmitter {
       throw new Error('Reference pitch must be positive');
     }
     this.config.referencePitch = frequency;
+    this.musicSystem.setReferencePitch(frequency);
     this.emit('config_change', { referencePitch: frequency });
   }
   
@@ -184,6 +198,34 @@ export class MusicallyEngine extends EventEmitter {
    */
   getConfig(): Required<EngineConfig> {
     return { ...this.config };
+  }
+
+  /**
+   * Get current music system instance
+   */
+  getMusicSystem(): BaseMusicSystem {
+    return this.musicSystem;
+  }
+
+  /**
+   * Analyze a frequency using the current music system
+   */
+  analyzeFrequency(frequency: number): WesternAnalysis | CarnaticAnalysis | HindustaniAnalysis {
+    return this.musicSystem.analyzeFrequency(frequency);
+  }
+
+  /**
+   * Convert frequency to note using the current music system
+   */
+  frequencyToNote(frequency: number) {
+    return this.musicSystem.frequencyToNote(frequency);
+  }
+
+  /**
+   * Convert note to frequency using the current music system
+   */
+  noteToFrequency(note: string, octave?: number): number {
+    return this.musicSystem.noteToFrequency(note, octave);
   }
   
   /**
@@ -270,28 +312,73 @@ export class MusicallyEngine extends EventEmitter {
   }
   
   private processAudioData(data: Float32Array): void {
-    // TODO: Implement actual audio analysis in Phase 2-4
-    // For now, emit a basic analysis result
+    // TODO: Implement actual FFT and pitch detection in Phase 2
+    // For now, create a mock frequency for demonstration
+    const mockFrequency = 440; // This would come from actual pitch detection
     
-    const mockResult: AnalysisResult = {
-      timestamp: Date.now(),
-      frequency: 440,
-      amplitude: 0.5,
-      confidence: 0.8,
-      audioType: this.config.audioType === 'auto' ? 'voice' : this.config.audioType,
-      western: {
-        note: 'A4',
-        noteFrequency: 440,
-        cents: 0,
-        octave: 4
-      },
-      musicalContext: {
-        intervalFromTonic: 'unison',
-        inScale: true
-      }
-    };
+    // Use the music system to analyze the frequency
+    const musicAnalysis = this.musicSystem.analyzeFrequency(mockFrequency);
     
-    this.emit('analysis', mockResult);
+    // Create analysis result based on music system type
+    let result: AnalysisResult;
+    
+    if (this.config.musicSystem === 'western' || this.config.musicSystem === 'auto') {
+      const westernAnalysis = musicAnalysis as WesternAnalysis;
+      result = {
+        timestamp: Date.now(),
+        frequency: mockFrequency,
+        amplitude: 0.5, // TODO: Calculate from audio data
+        confidence: 0.8, // TODO: Calculate confidence based on pitch detection
+        audioType: this.config.audioType === 'auto' ? 'voice' : this.config.audioType,
+        western: westernAnalysis,
+        musicalContext: {
+          intervalFromTonic: 'unison', // TODO: Calculate interval
+          inScale: true // TODO: Check against current scale
+        }
+      };
+    } else if (this.config.musicSystem === 'carnatic') {
+      const carnaticAnalysis = musicAnalysis as CarnaticAnalysis;
+      result = {
+        timestamp: Date.now(),
+        frequency: mockFrequency,
+        amplitude: 0.5,
+        confidence: 0.8,
+        audioType: this.config.audioType === 'auto' ? 'voice' : this.config.audioType,
+        western: {
+          note: 'A4', // Provide basic Western equivalent
+          noteFrequency: mockFrequency,
+          cents: 0,
+          octave: 4
+        },
+        carnatic: carnaticAnalysis,
+        musicalContext: {
+          intervalFromTonic: 'unison',
+          inScale: true
+        }
+      };
+    } else { // hindustani
+      const hindustaniAnalysis = musicAnalysis as HindustaniAnalysis;
+      result = {
+        timestamp: Date.now(),
+        frequency: mockFrequency,
+        amplitude: 0.5,
+        confidence: 0.8,
+        audioType: this.config.audioType === 'auto' ? 'voice' : this.config.audioType,
+        western: {
+          note: 'A4', // Provide basic Western equivalent
+          noteFrequency: mockFrequency,
+          cents: 0,
+          octave: 4
+        },
+        hindustani: hindustaniAnalysis,
+        musicalContext: {
+          intervalFromTonic: 'unison',
+          inScale: true
+        }
+      };
+    }
+    
+    this.emit('analysis', result);
   }
 }
 

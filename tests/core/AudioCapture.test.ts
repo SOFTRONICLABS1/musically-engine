@@ -93,6 +93,7 @@ class MockPlatformAdapter implements IPlatformAdapter {
   // Test helpers
   simulateAudioData(data: Float32Array): void {
     this.audioDataHandlers.forEach(handler => handler(data));
+    this.emit('audio_data', data);
   }
 
   isInitialized(): boolean {
@@ -101,6 +102,25 @@ class MockPlatformAdapter implements IPlatformAdapter {
 
   isCapturing(): boolean {
     return this.capturing;
+  }
+}
+
+// Failing mock adapters for specific tests
+class FailingInitializeMockAdapter extends MockPlatformAdapter {
+  async initialize(config: AudioCaptureConfig): Promise<void> {
+    throw new Error('Init failed');
+  }
+}
+
+class FailingLoadFileMockAdapter extends MockPlatformAdapter {
+  async loadFile(file: File | string | Buffer | ArrayBuffer): Promise<EngineAudioBuffer> {
+    throw new Error('File load failed');
+  }
+}
+
+class FailingStartMicMockAdapter extends MockPlatformAdapter {
+  async startMicrophone(): Promise<void> {
+    throw new Error('Mic failed');
   }
 }
 
@@ -156,13 +176,16 @@ describe('AudioCapture', () => {
     });
 
     test('should emit error on initialization failure', async () => {
+      const failingAdapter = new FailingInitializeMockAdapter();
+      const testAudioCapture = new AudioCapture(failingAdapter);
       const errorHandler = jest.fn();
-      audioCapture.on('error', errorHandler);
+      testAudioCapture.on('error', errorHandler);
 
-      // Make adapter throw error
-      mockAdapter.initialize = jest.fn().mockRejectedValue(new Error('Init failed'));
-
-      await expect(audioCapture.initialize()).rejects.toThrow();
+      await expect(testAudioCapture.initialize()).rejects.toMatchObject({
+        code: 'ENGINE_INIT_FAILED',
+        message: 'Failed to initialize audio capture'
+      });
+      
       expect(errorHandler).toHaveBeenCalledWith(
         expect.objectContaining({
           code: 'ENGINE_INIT_FAILED'
@@ -261,13 +284,23 @@ describe('AudioCapture', () => {
     });
 
     test('should handle file load errors', async () => {
+      const failingAdapter = new FailingLoadFileMockAdapter();
+      const testAudioCapture = new AudioCapture(failingAdapter);
+      await testAudioCapture.initialize();
+      
       const errorHandler = jest.fn();
-      audioCapture.on('error', errorHandler);
+      testAudioCapture.on('error', errorHandler);
 
-      mockAdapter.loadFile = jest.fn().mockRejectedValue(new Error('File load failed'));
-
-      await expect(audioCapture.loadFile(new File([''], 'test.wav'))).rejects.toThrow();
-      expect(errorHandler).toHaveBeenCalled();
+      await expect(testAudioCapture.loadFile(new File([''], 'test.wav'))).rejects.toMatchObject({
+        code: 'FILE_LOAD_FAILED',
+        message: 'Failed to load audio file'
+      });
+      
+      expect(errorHandler).toHaveBeenCalledWith(
+        expect.objectContaining({
+          code: 'FILE_LOAD_FAILED'
+        })
+      );
     });
   });
 
@@ -410,14 +443,18 @@ describe('AudioCapture', () => {
     });
 
     test('should handle microphone start errors', async () => {
-      await audioCapture.initialize();
+      const failingAdapter = new FailingStartMicMockAdapter();
+      const testAudioCapture = new AudioCapture(failingAdapter);
+      await testAudioCapture.initialize();
 
       const errorHandler = jest.fn();
-      audioCapture.on('error', errorHandler);
+      testAudioCapture.on('error', errorHandler);
 
-      mockAdapter.startMicrophone = jest.fn().mockRejectedValue(new Error('Mic failed'));
-
-      await expect(audioCapture.startMicrophone()).rejects.toThrow();
+      await expect(testAudioCapture.startMicrophone()).rejects.toMatchObject({
+        code: 'MICROPHONE_START_FAILED',
+        message: 'Failed to start microphone capture'
+      });
+      
       expect(errorHandler).toHaveBeenCalledWith(
         expect.objectContaining({
           code: 'MICROPHONE_START_FAILED'

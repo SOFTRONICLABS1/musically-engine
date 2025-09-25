@@ -88,7 +88,8 @@ describe('FFT Algorithm', () => {
             const peakFreq = fft.findPeakFrequency(magnitude);
             
             // Should be close to the input frequency (within FFT bin resolution)
-            expect(peakFreq).toBeCloseTo(frequency, 0);
+            const frequencyResolution = sampleRate / fftSize; // 43.07 Hz
+            expect(Math.abs(peakFreq - frequency)).toBeLessThan(frequencyResolution);
         });
         
         test('should handle complex signals with multiple frequencies', () => {
@@ -119,8 +120,9 @@ describe('FFT Algorithm', () => {
             
             // Should find both frequencies
             expect(peaks.length).toBeGreaterThanOrEqual(2);
-            expect(peaks[0].freq).toBeCloseTo(freq1, 0);
-            expect(peaks[1].freq).toBeCloseTo(freq2, 0);
+            const frequencyResolution = sampleRate / fftSize;
+            expect(Math.abs(peaks[0].freq - freq1)).toBeLessThan(frequencyResolution);
+            expect(Math.abs(peaks[1].freq - freq2)).toBeLessThan(frequencyResolution);
         });
         
         test('should reject wrong input size', () => {
@@ -174,7 +176,8 @@ describe('FFT Algorithm', () => {
             const magnitude = fft.getMagnitudeSpectrum(real, imag);
             const peakFreq = fft.findPeakFrequency(magnitude);
             
-            expect(peakFreq).toBeCloseTo(testFreq, 0);
+            const frequencyResolution = sampleRate / fftSize;
+            expect(Math.abs(peakFreq - testFreq)).toBeLessThan(frequencyResolution);
         });
         
         test('should handle noise correctly', () => {
@@ -229,7 +232,8 @@ describe('RealTimeFFT', () => {
             }
             
             const detectedFreq = freqBins[maxIndex];
-            expect(detectedFreq).toBeCloseTo(frequency, 0);
+            const frequencyResolution = sampleRate / fftSize;
+            expect(Math.abs(detectedFreq - frequency)).toBeLessThan(frequencyResolution);
         });
         
         test('should handle custom window function', () => {
