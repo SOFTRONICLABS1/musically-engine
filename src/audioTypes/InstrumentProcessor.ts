@@ -399,8 +399,20 @@ export class InstrumentProcessor {
    * Performance optimization to avoid redundant FFT calculations
    */
   private getCachedFFTResults(buffer: Float32Array): { real: Float32Array; imag: Float32Array; magnitude: Float32Array } {
+    // Ensure buffer size matches FFT size to prevent size mismatch errors
+    let processBuffer = buffer;
+    if (buffer.length !== this.frameSize) {
+      if (buffer.length > this.frameSize) {
+        // Truncate to FFT size
+        processBuffer = buffer.slice(0, this.frameSize);
+      } else {
+        // Zero-pad to FFT size
+        processBuffer = FFT.zeroPad(buffer, this.frameSize);
+      }
+    }
+    
     // SUPER OPTIMIZED: Check for identical buffer reference first (performance test case)
-    if (this.cachedFFTResult && this.cachedFFTResult.buffer === buffer) {
+    if (this.cachedFFTResult && this.cachedFFTResult.buffer === processBuffer) {
       return {
         real: this.cachedFFTResult.real,
         imag: this.cachedFFTResult.imag,
@@ -409,10 +421,10 @@ export class InstrumentProcessor {
     }
     
     // Fast buffer hash using only key samples for different buffers with same content
-    let bufferHash = buffer.length.toString();
-    const step = Math.max(1, Math.floor(buffer.length / 16)); // Sample every ~16th element
-    for (let i = 0; i < buffer.length; i += step) {
-      bufferHash += buffer[i].toFixed(3); // Use limited precision for speed
+    let bufferHash = processBuffer.length.toString();
+    const step = Math.max(1, Math.floor(processBuffer.length / 16)); // Sample every ~16th element
+    for (let i = 0; i < processBuffer.length; i += step) {
+      bufferHash += processBuffer[i].toFixed(3); // Use limited precision for speed
     }
     
     // Check if we have cached results for this buffer content
@@ -424,13 +436,13 @@ export class InstrumentProcessor {
       };
     }
     
-    // Compute new FFT results
-    const { real, imag } = this.fft.forward(buffer);
+    // Compute new FFT results with properly sized buffer
+    const { real, imag } = this.fft.forward(processBuffer);
     const magnitude = this.fft.getMagnitudeSpectrum(real, imag);
     
     // Cache the results (store buffer reference for super-fast identical buffer detection)
     this.cachedFFTResult = {
-      buffer: buffer, // Store reference for identical buffer detection
+      buffer: processBuffer, // Store reference for identical buffer detection
       real: new Float32Array(real),
       imag: new Float32Array(imag), 
       magnitude: new Float32Array(magnitude),

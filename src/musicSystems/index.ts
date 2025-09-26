@@ -2,7 +2,9 @@ export { BaseMusicSystem } from './BaseMusicSystem';
 export { WesternMusicSystem } from './Western';
 export { CarnaticMusicSystem } from './Carnatic';
 export { HindustaniMusicSystem } from './Hindustani';
+export { ShrutiDetector } from './ShrutiDetector';
 export type { NoteInfo, IntervalInfo, ScaleInfo, ChordInfo } from './BaseMusicSystem';
+export type { ShrutiDetectionResult, FrequencyCluster, ShrutiDetectionConfig } from './ShrutiDetector';
 
 import { WesternMusicSystem } from './Western';
 import { CarnaticMusicSystem } from './Carnatic';

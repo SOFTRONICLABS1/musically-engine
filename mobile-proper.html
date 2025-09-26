@@ -1,0 +1,1095 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>🎵 Musically Engine - Mobile</title>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            min-height: 100vh;
+            padding: 10px;
+            touch-action: manipulation;
+        }
+
+        .container {
+            max-width: 100%;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            text-align: center;
+            padding: 20px 10px;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+
+        .subtitle {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .status {
+            background: #f0fff4;
+            color: #38a169;
+            padding: 12px;
+            text-align: center;
+            font-weight: bold;
+            border-bottom: 2px solid #e2e8f0;
+        }
+
+        .section {
+            padding: 15px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .section:last-child {
+            border-bottom: none;
+        }
+
+        .section h3 {
+            font-size: 18px;
+            color: #2d3748;
+            margin-bottom: 12px;
+        }
+
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .control-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .control-row label {
+            flex: 0 0 100px;
+            font-weight: 600;
+            color: #4a5568;
+            font-size: 14px;
+        }
+
+        .control-row select,
+        .control-row input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #cbd5e0;
+            border-radius: 8px;
+            background: white;
+            font-size: 16px;
+            -webkit-appearance: none;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        button {
+            flex: 1;
+            padding: 12px 20px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 16px;
+            cursor: pointer;
+            touch-action: manipulation;
+            transition: transform 0.2s;
+        }
+
+        button:active {
+            transform: scale(0.98);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        button.secondary {
+            background: linear-gradient(135deg, #a0aec0, #718096);
+        }
+
+        button.danger {
+            background: linear-gradient(135deg, #fc8181, #f56565);
+        }
+
+        .verify-btn {
+            background: linear-gradient(135deg, #48bb78, #38a169);
+            animation: pulse 2s infinite;
+        }
+
+        .verify-btn:disabled {
+            animation: none;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        #analysisDisplay {
+            background: #f7fafc;
+            padding: 15px;
+            border-radius: 8px;
+            min-height: 150px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            white-space: pre-wrap;
+            word-break: break-word;
+            max-height: 300px;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .analysis-entry {
+            margin: 5px 0;
+            padding: 8px;
+            background: white;
+            border-radius: 5px;
+            border-left: 3px solid #667eea;
+        }
+
+        .info-box {
+            background: #ebf8ff;
+            color: #3182ce;
+            padding: 12px;
+            border-radius: 8px;
+            margin: 10px 0;
+            font-size: 14px;
+        }
+
+        .error-box {
+            background: #fff5f5;
+            color: #e53e3e;
+            padding: 12px;
+            border-radius: 8px;
+            margin: 10px 0;
+            font-size: 14px;
+        }
+
+        .success-box {
+            background: #f0fff4;
+            color: #38a169;
+            padding: 12px;
+            border-radius: 8px;
+            margin: 10px 0;
+            font-size: 14px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #718096;
+        }
+
+        @media (min-width: 768px) {
+            body {
+                padding: 20px;
+            }
+            
+            .container {
+                max-width: 600px;
+                margin: 0 auto 20px;
+            }
+            
+            .controls {
+                flex-direction: row;
+                flex-wrap: wrap;
+            }
+            
+            .control-row {
+                flex: 0 0 48%;
+            }
+        }
+
+        @media (max-width: 380px) {
+            .header h1 {
+                font-size: 20px;
+            }
+            
+            .control-row label {
+                flex: 0 0 80px;
+                font-size: 13px;
+            }
+            
+            button {
+                font-size: 14px;
+                padding: 10px 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎵 Musically Engine</h1>
+            <div class="subtitle">Using TypeScript Engine + Sa-Pa-Sa Demo</div>
+        </div>
+        
+        <div class="status" id="engineStatus">
+            Loading engine...
+        </div>
+        
+        <!-- Main Controls -->
+        <div class="section">
+            <h3>🎤 Audio Analysis</h3>
+            
+            <div class="controls">
+                <div class="control-row">
+                    <label>Audio Type</label>
+                    <select id="audioType">
+                        <option value="vocal">🎤 Vocal</option>
+                        <option value="instrument">🎸 Instrument</option>
+                    </select>
+                </div>
+                
+                <div class="control-row">
+                    <label>Music System</label>
+                    <select id="musicSystem">
+                        <option value="western">🎼 Western</option>
+                        <option value="carnatic" selected>🎵 Carnatic</option>
+                        <option value="hindustani">🎶 Hindustani</option>
+                    </select>
+                </div>
+                
+                
+                <div class="control-row">
+                    <label>Shruti (Sa)</label>
+                    <select id="shrutiSelect">
+                        <option value="auto">🎯 Auto-Detect</option>
+                        <option value="261.63">C (261.63 Hz)</option>
+                        <option value="277.18">C# (277.18 Hz)</option>
+                        <option value="293.66">D (293.66 Hz)</option>
+                        <option value="311.13">D# (311.13 Hz)</option>
+                        <option value="329.63">E (329.63 Hz)</option>
+                        <option value="349.23">F (349.23 Hz)</option>
+                        <option value="369.99">F# (369.99 Hz)</option>
+                        <option value="392.00">G (392.00 Hz)</option>
+                        <option value="415.30">G# (415.30 Hz)</option>
+                        <option value="440.00">A (440.00 Hz)</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="button-group">
+                <button onclick="startAnalysis()" id="startBtn">
+                    🎤 Start
+                </button>
+                <button onclick="stopAnalysis()" id="stopBtn" class="secondary" disabled>
+                    ⏹️ Stop
+                </button>
+                <button onclick="verifyWhatYouSang()" id="verifyBtn" class="verify-btn" disabled style="display: none;">
+                    🔍 Verify What You Sang
+                </button>
+            </div>
+            
+            <div class="button-group">
+                <button onclick="detectShruti()" id="shrutiBtn">
+                    🎵 Detect Shruti (Engine)
+                </button>
+                <button onclick="playSaPaDemo()" id="demoBtn" class="secondary">
+                    🔊 Play Sa-Pa-Sa Demo
+                </button>
+            </div>
+            
+            <div class="button-group">
+                <button onclick="clearDisplay()" class="danger">
+                    🗑️ Clear
+                </button>
+            </div>
+        </div>
+        
+        <!-- Analysis Display -->
+        <div class="section">
+            <h3>📊 Live Analysis</h3>
+            <div id="analysisDisplay">
+                <div class="info-box">
+                    Ready to analyze audio. Tap "Start" to begin.
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Load the compiled engine bundle -->
+    <script src="dist/browser/musically-engine.umd.js"></script>
+    
+    <!-- Mobile application code using ACTUAL engine -->
+    <script>
+        // Global variables
+        let audioContext = null;
+        let micStream = null;
+        let analyzerNode = null;
+        let micSource = null;
+        let isAnalyzing = false;
+        let animationId = null;
+        
+        // Store detected notes for verification playback
+        let detectedNotes = [];
+        let sessionStartTime = null;
+        
+        // Adaptive noise floor learning
+        let noiseFloor = 0;
+        let noiseFloorSamples = 0;
+        let noiseCalibrationComplete = false;
+        
+        // Engine variables - Using REAL TypeScript engine
+        let engine = null;
+        let musicSystem = null;
+        let audioProcessor = null;
+        let shrutiDetector = null; // NEW: Use actual ShrutiDetector from engine
+        
+        // Shruti detection
+        let isDetectingShruti = false;
+        let shrutiBuffer = [];
+        
+        // Initialize on page load
+        window.addEventListener('DOMContentLoaded', async () => {
+            try {
+                // Check if engine is available
+                if (typeof MusicallyEngine === 'undefined') {
+                    throw new Error('Engine bundle not loaded');
+                }
+                
+                // Initialize engine
+                engine = new MusicallyEngine.MusicallyEngine();
+                await engine.initialize();
+                
+                // Create initial music system
+                updateMusicSystem();
+                
+                // Create audio processor
+                const processorConfig = {
+                    sampleRate: 44100,
+                    frameSize: 2048,
+                    audioType: document.getElementById('audioType').value
+                };
+                audioProcessor = new MusicallyEngine.AdaptiveProcessor(processorConfig);
+                
+                // ✅ NEW: Create ShrutiDetector from engine (not HTML!)
+                shrutiDetector = new MusicallyEngine.ShrutiDetector({
+                    minSamples: 40,           // Reduced for mobile
+                    clusterTolerance: 25,     // Hz tolerance
+                    minClusterSize: 3,        // Minimum samples per cluster
+                    perfectFifthRatio: 1.5,   // 3:2 ratio
+                    ratioTolerance: 0.08      // ±8% tolerance
+                });
+                
+                // Update status
+                document.getElementById('engineStatus').textContent = '✅ Engine Ready (v2 with ShrutiDetector)';
+                document.getElementById('engineStatus').style.background = '#f0fff4';
+                
+            } catch (error) {
+                console.error('Engine init error:', error);
+                document.getElementById('engineStatus').textContent = '❌ Engine Error';
+                document.getElementById('engineStatus').style.background = '#fff5f5';
+                document.getElementById('engineStatus').style.color = '#e53e3e';
+                
+                const display = document.getElementById('analysisDisplay');
+                display.innerHTML = `
+                    <div class="error-box">
+                        Failed to initialize engine: ${error.message}
+                    </div>
+                `;
+            }
+        });
+        
+        // Update music system when selection changes
+        function updateMusicSystem() {
+            if (!MusicallyEngine) return;
+            
+            const systemType = document.getElementById('musicSystem').value;
+            
+            musicSystem = MusicallyEngine.createMusicSystem(systemType, 440); // Use standard 440Hz
+        }
+        
+        // Add event listeners
+        document.getElementById('musicSystem').addEventListener('change', updateMusicSystem);
+        
+        document.getElementById('audioType').addEventListener('change', (e) => {
+            if (audioProcessor) {
+                audioProcessor.updateConfig({ audioType: e.target.value });
+            }
+        });
+        
+        // Initialize audio context
+        function initAudioContext() {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+        
+        // Start audio analysis
+        async function startAnalysis() {
+            try {
+                // Initialize session
+                detectedNotes = [];
+                sessionStartTime = Date.now();
+                
+                initAudioContext();
+                
+                // Resume context if suspended
+                if (audioContext.state === 'suspended') {
+                    await audioContext.resume();
+                }
+                
+                // Request microphone
+                micStream = await navigator.mediaDevices.getUserMedia({
+                    audio: {
+                        echoCancellation: false,
+                        noiseSuppression: false,
+                        autoGainControl: false
+                    }
+                });
+                
+                // Setup audio nodes
+                micSource = audioContext.createMediaStreamSource(micStream);
+                analyzerNode = audioContext.createAnalyser();
+                analyzerNode.fftSize = 2048;
+                
+                micSource.connect(analyzerNode);
+                
+                // Update UI
+                isAnalyzing = true;
+                document.getElementById('startBtn').disabled = true;
+                document.getElementById('stopBtn').disabled = false;
+                document.getElementById('shrutiBtn').disabled = true;
+                
+                const display = document.getElementById('analysisDisplay');
+                const timestamp = new Date().toLocaleTimeString();
+                display.innerHTML += `[${timestamp}] 🎤 Microphone active. Analyzing...\n`;
+                display.scrollTop = display.scrollHeight;
+                
+                // Start analysis loop
+                analyzeAudio();
+                
+            } catch (error) {
+                console.error('Mic error:', error);
+                const display = document.getElementById('analysisDisplay');
+                const timestamp = new Date().toLocaleTimeString();
+                display.innerHTML += `[${timestamp}] ❌ Microphone error: ${error.message}\n`;
+                display.scrollTop = display.scrollHeight;
+            }
+        }
+        
+        // Analyze audio loop
+        async function analyzeAudio() {
+            if (!isAnalyzing) return;
+            
+            const bufferLength = analyzerNode.fftSize;
+            const buffer = new Float32Array(bufferLength);
+            analyzerNode.getFloatTimeDomainData(buffer);
+            
+            // Calculate RMS amplitude for noise gating
+            let rms = 0;
+            let peak = 0;
+            for (let i = 0; i < buffer.length; i++) {
+                const sample = Math.abs(buffer[i]);
+                rms += buffer[i] * buffer[i];
+                if (sample > peak) peak = sample;
+            }
+            rms = Math.sqrt(rms / buffer.length);
+            
+            // Learn noise floor during first few seconds
+            if (!noiseCalibrationComplete && noiseFloorSamples < 150) { // ~5 seconds at 30fps
+                noiseFloor = (noiseFloor * noiseFloorSamples + rms) / (noiseFloorSamples + 1);
+                noiseFloorSamples++;
+                
+                if (noiseFloorSamples >= 150) {
+                    noiseCalibrationComplete = true;
+                    console.log(`Noise floor calibrated: ${noiseFloor.toFixed(4)}`);
+                    const display = document.getElementById('analysisDisplay');
+                    const timestamp = new Date().toLocaleTimeString();
+                    display.innerHTML += `[${timestamp}] 🔇 Noise floor calibrated: ${noiseFloor.toFixed(4)}. Ready for analysis!\n`;
+                    display.scrollTop = display.scrollHeight;
+                }
+                
+                animationId = requestAnimationFrame(analyzeAudio);
+                return;
+            }
+            
+            // Enhanced noise gate with adaptive thresholds based on learned noise floor
+            const adaptiveRmsThreshold = Math.max(0.05, noiseFloor * 5); // At least 5x noise floor
+            const peakThreshold = Math.max(0.1, noiseFloor * 8);         // At least 8x noise floor
+            const dynamicRange = peak / (rms + 0.001); // Avoid division by zero
+            
+            // Only process if signal is significantly above noise floor AND has good dynamic range
+            if (rms < adaptiveRmsThreshold || peak < peakThreshold || dynamicRange < 3.0) {
+                // Signal too quiet or lacks dynamic range - likely noise
+                animationId = requestAnimationFrame(analyzeAudio);
+                return;
+            }
+            
+            console.log(`Audio levels - RMS: ${rms.toFixed(4)}, Peak: ${peak.toFixed(4)}, Ratio: ${dynamicRange.toFixed(2)}`); // Debug log
+            
+            // Process with engine
+            if (audioProcessor && musicSystem) {
+                try {
+                    const result = await audioProcessor.processAudio(buffer);
+                    console.log('Analysis result:', result); // Debug log
+                    
+                    if (result && result.fundamentalFrequency > 50) {
+                        const musicAnalysis = musicSystem.analyzeFrequency(result.fundamentalFrequency);
+                        
+                        // Store detected note for verification playback (if not in shruti detection mode)
+                        if (!isDetectingShruti) {
+                            const noteData = {
+                                frequency: result.fundamentalFrequency,
+                                timestamp: Date.now(),
+                                relativeTime: Date.now() - sessionStartTime,
+                                analysis: getDetailedSvaraAnalysis(result.fundamentalFrequency)
+                            };
+                            detectedNotes.push(noteData);
+                        }
+                        
+                        // Handle shruti detection mode
+                        if (isDetectingShruti) {
+                            handleShrutiDetection(result.fundamentalFrequency);
+                        } else {
+                            displayAnalysisWithShruti(result, musicAnalysis);
+                        }
+                    } else {
+                        // Debug output for failed analysis
+                        if (!result) {
+                            console.log('No result from processAudio');
+                        } else if (!result.fundamentalFrequency) {
+                            console.log('No fundamentalFrequency in result:', result);
+                        } else if (result.fundamentalFrequency <= 50) {
+                            console.log('Frequency too low:', result.fundamentalFrequency);
+                        }
+                    }
+                } catch (error) {
+                    console.error('Analysis error:', error);
+                    // Show error in display
+                    const display = document.getElementById('analysisDisplay');
+                    const timestamp = new Date().toLocaleTimeString();
+                    display.innerHTML += `[${timestamp}] ❌ Analysis Error: ${error.message}\n`;
+                    display.scrollTop = display.scrollHeight;
+                }
+            }
+            
+            animationId = requestAnimationFrame(analyzeAudio);
+        }
+        
+        // Enhanced display analysis results with detailed Shruti detection
+        function displayAnalysisWithShruti(audioResult, musicResult) {
+            updateAnalysisDisplay(audioResult, musicResult);
+        }
+        
+        // Updated analysis display function with proper log preservation
+        function updateAnalysisDisplay(audioResult, musicResult) {
+            const display = document.getElementById('analysisDisplay');
+            const timestamp = new Date().toLocaleTimeString();
+            const frequency = audioResult.fundamentalFrequency;
+            
+            // Get detailed Shruti analysis
+            const analysis = getDetailedSvaraAnalysis(frequency);
+            
+            // Format output: Closest Swara, Closest Octave, actual Frequency (Shruthi set by user)
+            let text = `[${timestamp}] `;
+            text += `Closest Swara: ${analysis.closestSvara} | `;
+            text += `Closest Octave: ${analysis.closestOctave} | `;
+            text += `Actual Frequency: ${analysis.actualFrequency.toFixed(2)} Hz`;
+            
+            // Add cents deviation if significant
+            if (Math.abs(analysis.cents) > 5) {
+                text += ` (${analysis.cents > 0 ? '+' : ''}${analysis.cents} cents)`;
+            }
+            
+            // Append to display (scrollable log that preserves all history)
+            display.innerHTML += text + '\n';
+            
+            // Auto-scroll to bottom
+            display.scrollTop = display.scrollHeight;
+        }
+        
+        // Detailed Svara analysis for mobile
+        function getDetailedSvaraAnalysis(frequency) {
+            // Get user-selected Shruti (Sa frequency)
+            const shrutiSelect = document.getElementById('shrutiSelect');
+            let saFreq = 261.63; // Default to C4
+            
+            if (shrutiSelect.value !== 'auto') {
+                saFreq = parseFloat(shrutiSelect.value);
+            }
+            
+            // Find the closest octave first
+            let octave = Math.round(Math.log2(frequency / saFreq));
+            let baseFreqForOctave = saFreq * Math.pow(2, octave);
+            
+            // Calculate ratio within the octave
+            let ratio = frequency / baseFreqForOctave;
+            
+            // If ratio is too high or low, adjust octave
+            while (ratio >= 2.0) {
+                octave++;
+                baseFreqForOctave *= 2;
+                ratio = frequency / baseFreqForOctave;
+            }
+            while (ratio < 0.5) {
+                octave--;
+                baseFreqForOctave /= 2;
+                ratio = frequency / baseFreqForOctave;
+            }
+            
+            // Define Svara frequency ratios (just intonation)
+            const svaras = [
+                { name: 'Sa', ratio: 1.000, western: 'C' },
+                { name: 'Ri', ratio: 1.125, western: 'D' },    // 9/8
+                { name: 'Ga', ratio: 1.250, western: 'E' },    // 5/4
+                { name: 'Ma', ratio: 1.333, western: 'F' },    // 4/3
+                { name: 'Pa', ratio: 1.500, western: 'G' },    // 3/2
+                { name: 'Dha', ratio: 1.667, western: 'A' },   // 5/3
+                { name: 'Ni', ratio: 1.875, western: 'B' }     // 15/8
+            ];
+            
+            // Find closest Svara
+            let closestSvara = svaras[0];
+            let minDifference = Math.abs(ratio - svaras[0].ratio);
+            
+            for (let svara of svaras) {
+                let difference = Math.abs(ratio - svara.ratio);
+                if (difference < minDifference) {
+                    minDifference = difference;
+                    closestSvara = svara;
+                }
+            }
+            
+            // Calculate octave name
+            let octaveName;
+            if (octave < 0) octaveName = 'Mandra';
+            else if (octave === 0) octaveName = 'Madhya';
+            else if (octave === 1) octaveName = 'Tara';
+            else if (octave > 1) octaveName = `Tara+${octave-1}`;
+            else octaveName = `Mandra+${Math.abs(octave)-1}`;
+            
+            // Calculate closest frequency and cents deviation
+            const closestFreq = baseFreqForOctave * closestSvara.ratio;
+            const cents = Math.round(1200 * Math.log2(frequency / closestFreq));
+            
+            // Western note equivalent (with octave number)
+            const westernOctaveNumber = 4 + octave;
+            const westernNote = `${closestSvara.western}${westernOctaveNumber}`;
+            
+            return {
+                closestSvara: closestSvara.name,
+                closestOctave: octaveName,
+                actualFrequency: frequency,
+                cents: cents,
+                closestFreq: closestFreq
+            };
+        }
+        
+        // Convert frequency to Indian Svara name (simple version)
+        function getSvaraName(frequency) {
+            return getDetailedSvaraAnalysis(frequency).closestSvara;
+        }
+        
+        // Get detailed Svara information
+        function getSvaraDetails(frequency) {
+            const saFreq = 261.63;
+            const ratio = frequency / saFreq;
+            
+            if (ratio >= 0.94 && ratio <= 1.06) return { position: 'Madhya Sthayi', degree: 'Shadja' };
+            else if (ratio >= 1.05 && ratio <= 1.19) return { position: 'Madhya Sthayi', degree: 'Rishabh' };
+            else if (ratio >= 1.18 && ratio <= 1.30) return { position: 'Madhya Sthayi', degree: 'Gandhar' };
+            else if (ratio >= 1.28 && ratio <= 1.37) return { position: 'Madhya Sthayi', degree: 'Madhyam' };
+            else if (ratio >= 1.40 && ratio <= 1.52) return { position: 'Madhya Sthayi', degree: 'Pancham' };
+            else if (ratio >= 1.51 && ratio <= 1.69) return { position: 'Madhya Sthayi', degree: 'Dhaivat' };
+            else if (ratio >= 1.68 && ratio <= 1.90) return { position: 'Madhya Sthayi', degree: 'Nishad' };
+            else if (ratio >= 1.89 && ratio <= 2.12) return { position: 'Tara Sthayi', degree: 'Shadja' };
+            else if (ratio >= 0.47 && ratio <= 0.53) return { position: 'Mandra Sthayi', degree: 'Shadja' };
+            else return { position: 'Out of range', degree: '' };
+        }
+        
+        // Original display analysis results (fallback)
+        function displayAnalysis(audioResult, musicResult) {
+            const display = document.getElementById('analysisDisplay');
+            const timestamp = new Date().toLocaleTimeString();
+            
+            let text = '';
+            const systemType = document.getElementById('musicSystem').value;
+            
+            switch (systemType) {
+                case 'western':
+                    text = `${musicResult.note} | ${audioResult.fundamentalFrequency.toFixed(1)}Hz | ${musicResult.cents > 0 ? '+' : ''}${musicResult.cents}¢`;
+                    break;
+                    
+                case 'carnatic':
+                    text = `${musicResult.swara} (${musicResult.octave}) | ${audioResult.fundamentalFrequency.toFixed(1)}Hz`;
+                    if (musicResult.possibleRagas && musicResult.possibleRagas.length > 0) {
+                        text += ` | ${musicResult.possibleRagas[0]}`;
+                    }
+                    break;
+                    
+                case 'hindustani':
+                    text = `${musicResult.swara} (${musicResult.octave}) | ${audioResult.fundamentalFrequency.toFixed(1)}Hz`;
+                    if (musicResult.possibleRagas && musicResult.possibleRagas.length > 0) {
+                        text += ` | ${musicResult.possibleRagas[0]}`;
+                    }
+                    break;
+            }
+            
+            // Keep only last 5 entries
+            const entries = display.querySelectorAll('.analysis-entry');
+            if (entries.length >= 5) {
+                entries[0].remove();
+            }
+            
+            const newEntry = document.createElement('div');
+            newEntry.className = 'analysis-entry';
+            newEntry.textContent = `[${timestamp.substring(0, 8)}] ${text}`;
+            display.appendChild(newEntry);
+        }
+        
+        // Stop analysis
+        function stopAnalysis() {
+            isAnalyzing = false;
+            
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+            }
+            
+            if (micSource) {
+                micSource.disconnect();
+            }
+            
+            if (micStream) {
+                micStream.getTracks().forEach(track => track.stop());
+            }
+            
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('stopBtn').disabled = true;
+            document.getElementById('shrutiBtn').disabled = false;
+            
+            const display = document.getElementById('analysisDisplay');
+            const timestamp = new Date().toLocaleTimeString();
+            display.innerHTML += `[${timestamp}] Analysis stopped.\n`;
+            
+            // Show verify button if notes were detected
+            if (detectedNotes.length > 0) {
+                const verifyBtn = document.getElementById('verifyBtn');
+                verifyBtn.style.display = 'inline-block';
+                verifyBtn.disabled = false;
+                
+                display.innerHTML += `[${timestamp}] ${detectedNotes.length} notes captured. Click "Verify What You Sang" to hear them back!\n`;
+            }
+            
+            display.scrollTop = display.scrollHeight;
+        }
+        
+        // Clear display
+        function clearDisplay() {
+            document.getElementById('analysisDisplay').innerHTML = `
+                <div class="info-box">
+                    Display cleared. Ready to analyze.
+                </div>
+            `;
+            detectedNotes = [];
+            document.getElementById('verifyBtn').style.display = 'none';
+            document.getElementById('verifyBtn').disabled = true;
+        }
+        
+        // Verify what you sang - play back detected notes
+        async function verifyWhatYouSang() {
+            if (detectedNotes.length === 0) {
+                const display = document.getElementById('analysisDisplay');
+                const timestamp = new Date().toLocaleTimeString();
+                display.innerHTML += `[${timestamp}] ❌ No notes to verify!\n`;
+                display.scrollTop = display.scrollHeight;
+                return;
+            }
+            
+            try {
+                const verifyBtn = document.getElementById('verifyBtn');
+                verifyBtn.disabled = true;
+                verifyBtn.textContent = '🔊 Playing...';
+                
+                const display = document.getElementById('analysisDisplay');
+                const timestamp = new Date().toLocaleTimeString();
+                display.innerHTML += `[${timestamp}] 🎵 Playing back ${detectedNotes.length} detected notes...\n`;
+                display.scrollTop = display.scrollHeight;
+                
+                // Group notes by time intervals to avoid too rapid playback
+                const groupedNotes = groupNotesByInterval(detectedNotes, 500); // 500ms intervals
+                
+                for (let i = 0; i < groupedNotes.length; i++) {
+                    const noteGroup = groupedNotes[i];
+                    const avgFreq = noteGroup.reduce((sum, note) => sum + note.frequency, 0) / noteGroup.length;
+                    const analysis = getDetailedSvaraAnalysis(avgFreq);
+                    
+                    // Play the note
+                    await playTone(avgFreq, 0.8, `${analysis.closestSvara} (${avgFreq.toFixed(1)} Hz)`);
+                    
+                    // Short pause between notes
+                    if (i < groupedNotes.length - 1) {
+                        await delay(200);
+                    }
+                }
+                
+                const finalTimestamp = new Date().toLocaleTimeString();
+                display.innerHTML += `[${finalTimestamp}] ✅ Playback complete! You sang ${groupedNotes.length} distinct notes.\n`;
+                display.scrollTop = display.scrollHeight;
+                
+            } catch (error) {
+                console.error('Verification playback error:', error);
+                const display = document.getElementById('analysisDisplay');
+                const timestamp = new Date().toLocaleTimeString();
+                display.innerHTML += `[${timestamp}] ❌ Playback failed: ${error.message}\n`;
+                display.scrollTop = display.scrollHeight;
+            } finally {
+                const verifyBtn = document.getElementById('verifyBtn');
+                verifyBtn.disabled = false;
+                verifyBtn.textContent = '🔍 Verify What You Sang';
+            }
+        }
+        
+        // Group notes by time intervals to create cleaner playback
+        function groupNotesByInterval(notes, intervalMs) {
+            if (notes.length === 0) return [];
+            
+            const grouped = [];
+            let currentGroup = [notes[0]];
+            
+            for (let i = 1; i < notes.length; i++) {
+                const timeDiff = notes[i].relativeTime - notes[i-1].relativeTime;
+                
+                if (timeDiff < intervalMs) {
+                    currentGroup.push(notes[i]);
+                } else {
+                    grouped.push(currentGroup);
+                    currentGroup = [notes[i]];
+                }
+            }
+            
+            // Add the last group
+            if (currentGroup.length > 0) {
+                grouped.push(currentGroup);
+            }
+            
+            return grouped;
+        }
+        
+        // ✅ NEW: Detect Shruti using ENGINE ShrutiDetector (not HTML logic!)
+        async function detectShruti() {
+            if (!shrutiDetector) {
+                const display = document.getElementById('analysisDisplay');
+                const timestamp = new Date().toLocaleTimeString();
+                display.innerHTML += `[${timestamp}] ❌ ShrutiDetector not initialized\n`;
+                display.scrollTop = display.scrollHeight;
+                return;
+            }
+            
+            isDetectingShruti = true;
+            shrutiBuffer = [];
+            
+            document.getElementById('shrutiBtn').disabled = true;
+            const display = document.getElementById('analysisDisplay');
+            const timestamp = new Date().toLocaleTimeString();
+            display.innerHTML += `[${timestamp}] 🎵 Engine listening for Sa-Pa-Sa pattern... Sing: Sa → Pa → Sa → Pa → Sa (Using TypeScript ShrutiDetector class!)\n`;
+            display.scrollTop = display.scrollHeight;
+            
+            // Start analysis if not running
+            if (!isAnalyzing) {
+                await startAnalysis();
+            }
+            
+            // Stop after 15 seconds and use ENGINE to detect
+            setTimeout(() => {
+                completeShrutiDetection();
+            }, 15000);
+        }
+        
+        // Handle shruti detection - just collect frequencies
+        function handleShrutiDetection(frequency) {
+            if (frequency > 100 && frequency < 1000) {
+                shrutiBuffer.push(frequency);
+                
+                // Show live feedback
+                if (shrutiBuffer.length % 20 === 0) {
+                    const recentFreqs = shrutiBuffer.slice(-20);
+                    const avgFreq = recentFreqs.reduce((a, b) => a + b) / recentFreqs.length;
+                    
+                    const display = document.getElementById('analysisDisplay');
+                    const timestamp = new Date().toLocaleTimeString();
+                    display.innerHTML += `[${timestamp}] 🎵 Engine collecting samples... Current: ${avgFreq.toFixed(1)} Hz (${shrutiBuffer.length} samples)\n`;
+                    display.scrollTop = display.scrollHeight;
+                }
+            }
+        }
+        
+        // ✅ NEW: Use ENGINE ShrutiDetector to analyze pattern
+        function completeShrutiDetection() {
+            isDetectingShruti = false;
+            document.getElementById('shrutiBtn').disabled = false;
+            
+            // ✅ Use actual TypeScript ShrutiDetector from engine!
+            const result = shrutiDetector.detectShruti(shrutiBuffer);
+            
+            if (result.success) {
+                const noteName = shrutiDetector.getShrutiNote(result.saFrequency);
+                
+                const display = document.getElementById('analysisDisplay');
+                const timestamp = new Date().toLocaleTimeString();
+                display.innerHTML += `[${timestamp}] ✅ ${result.message} | Note: ${noteName} | Confidence: ${(result.confidence * 100).toFixed(1)}% | Samples: ${shrutiBuffer.length}\n`;
+                display.scrollTop = display.scrollHeight;
+                
+                // Update shruti select
+                updateShrutiSelect(result.saFrequency);
+            } else {
+                const display = document.getElementById('analysisDisplay');
+                const timestamp = new Date().toLocaleTimeString();
+                display.innerHTML += `[${timestamp}] ❌ ${result.message} | 💡 Try: Sing Sa (lower) → Pa (higher) → Sa → Pa | Samples collected: ${shrutiBuffer.length}\n`;
+                display.scrollTop = display.scrollHeight;
+            }
+        }
+        
+        // Update shruti select
+        function updateShrutiSelect(frequency) {
+            const select = document.getElementById('shrutiSelect');
+            for (let option of select.options) {
+                const optValue = parseFloat(option.value);
+                if (!isNaN(optValue) && Math.abs(optValue - frequency) < 10) {
+                    select.value = option.value;
+                    break;
+                }
+            }
+        }
+        
+        // 🔊 Sa-Pa-Sa Demo Audio Synthesis
+        async function playSaPaDemo() {
+            const demoBtn = document.getElementById('demoBtn');
+            
+            try {
+                demoBtn.disabled = true;
+                demoBtn.textContent = '🔊 Playing Demo...';
+                
+                displayDemoMessage('🎵 Playing Sa-Pa-Sa demonstration...\n\nListen carefully to learn the correct pitch pattern:\n• Sa = base note (Madhya Sthayi)\n• Pa = perfect fifth higher (1.5x frequency)\n• Sa₊₁ = higher octave (Tara Sthayi)\n• Pa₋₁ = lower octave Pa (Mandra Sthayi)\n• Pattern: Sa → Pa → Sa₊₁ → Pa → Sa → Pa₋₁ → Sa');
+                
+                // Initialize audio context if not already done
+                if (!audioContext) {
+                    await initAudioContext();
+                }
+                
+                // Base Sa frequency (middle C)
+                const saFreq = 261.63; // C4 - Madhya Sthayi Sa
+                const paFreq = saFreq * 1.5; // Perfect fifth: G4 (392.44 Hz)
+                const saHighFreq = saFreq * 2; // Tara Sthayi Sa (C5 - 523.26 Hz)
+                const paLowFreq = paFreq / 2; // Mandra Sthayi Pa (G3 - 196.22 Hz)
+                
+                // Play complete Sa-Pa-Sa+1-Pa-Sa-Pa-1-Sa pattern
+                await playTone(saFreq, 1.0, 'Sa'); // Sa (Madhya)
+                await delay(150);
+                await playTone(paFreq, 1.0, 'Pa'); // Pa (Madhya)
+                await delay(150);
+                await playTone(saHighFreq, 1.0, 'Sa₊₁'); // Sa (Tara)
+                await delay(150);
+                await playTone(paFreq, 1.0, 'Pa'); // Pa (Madhya)
+                await delay(150);  
+                await playTone(saFreq, 1.0, 'Sa'); // Sa (Madhya)
+                await delay(150);
+                await playTone(paLowFreq, 1.0, 'Pa₋₁'); // Pa (Mandra)
+                await delay(150);
+                await playTone(saFreq, 1.2, 'Sa'); // Final Sa (Madhya)
+                
+                displayDemoMessage('✅ Complete Sa-Pa-Sa octave pattern demo complete!\n\nNow you try:\n1. Tap "🎵 Detect Shruti"\n2. Sing the same pattern: Sa → Pa → Sa₊₁ → Pa → Sa → Pa₋₁ → Sa\n3. Include all three octaves (Mandra, Madhya, Tara)\n\nFrequencies used:\n• Sa (Madhya): ' + saFreq.toFixed(1) + ' Hz\n• Pa (Madhya): ' + paFreq.toFixed(1) + ' Hz  \n• Sa₊₁ (Tara): ' + saHighFreq.toFixed(1) + ' Hz\n• Pa₋₁ (Mandra): ' + paLowFreq.toFixed(1) + ' Hz\n• Perfect fifth ratio: ' + (paFreq/saFreq).toFixed(3));
+                
+            } catch (error) {
+                displayDemoMessage('❌ Demo playback failed: ' + error.message);
+            } finally {
+                demoBtn.disabled = false;
+                demoBtn.textContent = '🔊 Play Sa-Pa-Sa Demo';
+            }
+        }
+        
+        // Play a single tone with WebAudio API
+        function playTone(frequency, duration, noteName) {
+            return new Promise((resolve) => {
+                if (!audioContext) {
+                    resolve();
+                    return;
+                }
+                
+                // Create oscillator for sine wave tone
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                // Connect oscillator -> gain -> output
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                // Configure the tone
+                oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
+                oscillator.type = 'sine'; // Pure sine wave for clear pitch
+                
+                // Smooth volume envelope (fade in/out to avoid clicks)
+                const now = audioContext.currentTime;
+                gainNode.gain.setValueAtTime(0, now);
+                gainNode.gain.linearRampToValueAtTime(0.3, now + 0.1); // Fade in
+                gainNode.gain.linearRampToValueAtTime(0.3, now + duration - 0.1); // Hold
+                gainNode.gain.linearRampToValueAtTime(0, now + duration); // Fade out
+                
+                // Start and stop the tone
+                oscillator.start(now);
+                oscillator.stop(now + duration);
+                
+                // Show live feedback
+                displayDemoMessage(`🎵 Playing ${noteName}: ${frequency.toFixed(1)} Hz`);
+                
+                // Resolve when tone ends
+                oscillator.onended = resolve;
+            });
+        }
+        
+        // Simple delay utility
+        function delay(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+        
+        // Simple demo message display function
+        function displayDemoMessage(message) {
+            const display = document.getElementById('analysisDisplay');
+            const timestamp = new Date().toLocaleTimeString();
+            
+            const entry = document.createElement('div');
+            entry.className = 'analysis-entry';
+            entry.innerHTML = `
+                <div style="color: #666; font-size: 11px;">[${timestamp}]</div>
+                <div style="white-space: pre-wrap;">${message}</div>
+            `;
+            
+            display.appendChild(entry);
+            display.scrollTop = display.scrollHeight;
+        }
+    </script>
+</body>
+</html>

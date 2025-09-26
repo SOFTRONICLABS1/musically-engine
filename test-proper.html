@@ -1,0 +1,1066 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Musically Engine - Using Real Engine Bundle</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            min-height: 100vh;
+        }
+        
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            color: #4a5568;
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #718096;
+            margin-bottom: 30px;
+            font-size: 1.2em;
+        }
+        
+        .status-banner {
+            background: linear-gradient(135deg, #48bb78, #38a169);
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            margin-bottom: 30px;
+            font-weight: bold;
+            font-size: 1.1em;
+        }
+        
+        .test-section {
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        
+        .test-section h3 {
+            color: #2d3748;
+            margin-bottom: 15px;
+            font-size: 1.4em;
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 10px;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        
+        .controls label {
+            font-weight: bold;
+            color: #4a5568;
+        }
+        
+        .controls select,
+        .controls input {
+            padding: 8px;
+            border: 1px solid #cbd5e0;
+            border-radius: 5px;
+            background: white;
+            font-size: 14px;
+        }
+        
+        button {
+            padding: 10px 20px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 14px;
+            transition: transform 0.2s;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .verify-btn {
+            background: linear-gradient(135deg, #48bb78, #38a169);
+            animation: pulse 2s infinite;
+        }
+
+        .verify-btn:disabled {
+            animation: none;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        
+        #liveAnalysis {
+            background: #f7fafc;
+            padding: 20px;
+            border-radius: 8px;
+            min-height: 200px;
+            font-family: 'Courier New', monospace;
+            white-space: pre-wrap;
+            border: 2px solid #e2e8f0;
+        }
+        
+        .analysis-line {
+            margin: 5px 0;
+            padding: 5px;
+            background: white;
+            border-radius: 4px;
+        }
+        
+        .error {
+            color: #e53e3e;
+            background-color: #fff5f5;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        
+        .success {
+            color: #38a169;
+            background-color: #f0fff4;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        
+        .info {
+            color: #3182ce;
+            background-color: #ebf8ff;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #718096;
+        }
+        
+        .pitch-display {
+            font-size: 24px;
+            font-weight: bold;
+            color: #667eea;
+            margin: 10px 0;
+        }
+        
+        .confidence-bar {
+            width: 100%;
+            height: 20px;
+            background: #e2e8f0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        
+        .confidence-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #48bb78, #38a169);
+            transition: width 0.3s ease;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎵 Musically Engine Test Interface</h1>
+        <div class="subtitle">Using Real TypeScript Engine Bundle</div>
+        
+        <div class="status-banner">
+            ✅ Engine Status: <span id="engineStatus">Loading...</span>
+        </div>
+        
+        <!-- Engine Information -->
+        <div class="test-section">
+            <h3>📊 Engine Information</h3>
+            <div id="engineInfo">
+                <div class="loading">Loading engine bundle...</div>
+            </div>
+        </div>
+        
+        <!-- Live Microphone Music Analysis -->
+        <div class="test-section">
+            <h3>🎤 Live Microphone Music Analysis</h3>
+            <p>Real-time audio analysis using your actual TypeScript engine:</p>
+            
+            <div class="controls">
+                <label>Audio Type:</label>
+                <select id="audioType">
+                    <option value="vocal">🎤 Vocal</option>
+                    <option value="instrument">🎸 Instrument</option>
+                </select>
+                
+                <label>Music System:</label>
+                <select id="musicSystem">
+                    <option value="western">🎼 Western</option>
+                    <option value="carnatic" selected>🎵 Carnatic</option>
+                    <option value="hindustani">🎶 Hindustani</option>
+                </select>
+                
+            </div>
+            
+            <div class="controls">
+                <label>Shruti (Sa):</label>
+                <select id="shrutiSelect">
+                    <option value="auto">🎯 Auto-Detect</option>
+                    <option value="246.94">B (246.94 Hz)</option>
+                    <option value="261.63">C (261.63 Hz)</option>
+                    <option value="277.18">C# (277.18 Hz)</option>
+                    <option value="293.66">D (293.66 Hz)</option>
+                    <option value="311.13">D# (311.13 Hz)</option>
+                    <option value="329.63">E (329.63 Hz)</option>
+                    <option value="349.23">F (349.23 Hz)</option>
+                    <option value="369.99">F# (369.99 Hz)</option>
+                    <option value="392.00">G (392.00 Hz)</option>
+                    <option value="415.30">G# (415.30 Hz)</option>
+                    <option value="440.00">A (440.00 Hz)</option>
+                    <option value="466.16">A# (466.16 Hz)</option>
+                </select>
+                
+                <button onclick="startShrutiDetection()" id="detectShrutiBtn">🎵 Detect Shruti (Sa-Pa-Sa)</button>
+                <button onclick="playSaPaDemo()" id="demoBtn">🔊 Play Sa-Pa-Sa Demo</button>
+            </div>
+            
+            <div class="controls">
+                <button onclick="startMicrophoneAnalysis()" id="startMicBtn">🎤 Start Microphone</button>
+                <button onclick="stopMicrophoneAnalysis()" id="stopMicBtn" disabled>⏹️ Stop</button>
+                <button onclick="verifyWhatYouSang()" id="verifyBtn" class="verify-btn" disabled style="display: none;">🔍 Verify What You Sang</button>
+                <button onclick="clearAnalysis()">🗑️ Clear</button>
+            </div>
+            
+            <div id="liveAnalysis" style="
+                height: 300px; 
+                overflow-y: auto; 
+                border: 2px solid #ddd; 
+                border-radius: 8px; 
+                padding: 15px; 
+                background: #fafafa;
+                font-family: 'Courier New', monospace;
+                font-size: 14px;
+                line-height: 1.4;
+                white-space: pre-wrap;
+            "></div>
+        </div>
+        
+        <!-- Test Audio Generation -->
+        <div class="test-section">
+            <h3>🎹 Test Audio Generation</h3>
+            <div class="controls">
+                <label>Test Note:</label>
+                <select id="testNote">
+                    <option value="261.63">C4 (261.63 Hz)</option>
+                    <option value="293.66">D4 (293.66 Hz)</option>
+                    <option value="329.63">E4 (329.63 Hz)</option>
+                    <option value="349.23">F4 (349.23 Hz)</option>
+                    <option value="392.00">G4 (392.00 Hz)</option>
+                    <option value="440.00">A4 (440.00 Hz)</option>
+                    <option value="493.88">B4 (493.88 Hz)</option>
+                </select>
+                
+                <button onclick="playTestNote()">▶️ Play</button>
+                <button onclick="stopTestNote()">⏹️ Stop</button>
+                <button onclick="analyzeTestNote()">📊 Analyze</button>
+            </div>
+            <div id="testNoteAnalysis"></div>
+        </div>
+    </div>
+    
+    <!-- Load the compiled engine bundle -->
+    <script src="dist/browser/musically-engine.umd.js"></script>
+    
+    <!-- Application code that uses the engine -->
+    <script>
+        // Global variables
+        let audioContext;
+        let microphoneStream;
+        let analyzerNode;
+        let microphoneSource;
+        let animationFrame;
+        let isAnalyzing = false;
+        
+        // Store detected notes for verification playback
+        let detectedNotes = [];
+        let sessionStartTime = null;
+        
+        // Adaptive noise floor learning
+        let noiseFloor = 0;
+        let noiseFloorSamples = 0;
+        let noiseCalibrationComplete = false;
+        let engine = null;
+        let musicSystem = null;
+        let audioProcessor = null;
+        let testOscillator = null;
+        
+        // Sa-Pa-Sa shruti detection variables
+        let isDetectingShruti = false;
+        let saPaPatternBuffer = [];
+        let detectedSaFrequency = null;
+        let detectedPaFrequency = null;
+        let saPaCycles = 0;
+        
+        // Initialize engine when page loads
+        window.addEventListener('DOMContentLoaded', async () => {
+            try {
+                // Check if MusicallyEngine is available
+                if (typeof MusicallyEngine === 'undefined') {
+                    throw new Error('MusicallyEngine bundle not loaded');
+                }
+                
+                // Initialize the engine
+                engine = new MusicallyEngine.MusicallyEngine();
+                await engine.initialize();
+                
+                // Create music system
+                const systemType = document.getElementById('musicSystem').value;
+                musicSystem = MusicallyEngine.createMusicSystem(systemType, 440); // Use standard 440Hz
+                
+                // Create audio processor
+                const processorConfig = {
+                    sampleRate: 44100,
+                    frameSize: 2048,
+                    audioType: document.getElementById('audioType').value
+                };
+                audioProcessor = new MusicallyEngine.AdaptiveProcessor(processorConfig);
+                
+                // Update UI
+                document.getElementById('engineStatus').textContent = 'Ready';
+                document.getElementById('engineInfo').innerHTML = `
+                    <div class="success">
+                        ✅ Engine loaded successfully!<br>
+                        Version: ${MusicallyEngine.version || '1.0.0'}<br>
+                        Music Systems: Western, Carnatic, Hindustani<br>
+                        Audio Processors: Vocal, Instrument, Adaptive<br>
+                        Algorithms: YIN, Autocorrelation, HPS, FFT
+                    </div>
+                `;
+            } catch (error) {
+                console.error('Engine initialization error:', error);
+                document.getElementById('engineStatus').textContent = 'Error';
+                document.getElementById('engineInfo').innerHTML = `
+                    <div class="error">
+                        ❌ Failed to load engine: ${error.message}<br>
+                        Please check that the bundle was built correctly.
+                    </div>
+                `;
+            }
+        });
+        
+        // Update music system when selection changes
+        document.getElementById('musicSystem').addEventListener('change', (e) => {
+            if (engine && MusicallyEngine) {
+                musicSystem = MusicallyEngine.createMusicSystem(e.target.value, 440); // Use standard 440Hz
+            }
+        });
+        
+        
+        document.getElementById('audioType').addEventListener('change', (e) => {
+            if (audioProcessor) {
+                audioProcessor.updateConfig({ audioType: e.target.value });
+            }
+        });
+        
+        // Initialize audio context
+        function initAudio() {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+        
+        // Start microphone analysis
+        async function startMicrophoneAnalysis() {
+            try {
+                // Initialize session
+                detectedNotes = [];
+                sessionStartTime = Date.now();
+                
+                initAudio();
+                
+                if (audioContext.state === 'suspended') {
+                    await audioContext.resume();
+                }
+                
+                // Get microphone access
+                microphoneStream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: { 
+                        echoCancellation: false,
+                        noiseSuppression: false,
+                        autoGainControl: false
+                    } 
+                });
+                
+                // Create audio nodes
+                microphoneSource = audioContext.createMediaStreamSource(microphoneStream);
+                analyzerNode = audioContext.createAnalyser();
+                analyzerNode.fftSize = 2048;
+                
+                microphoneSource.connect(analyzerNode);
+                
+                isAnalyzing = true;
+                document.getElementById('startMicBtn').disabled = true;
+                document.getElementById('stopMicBtn').disabled = false;
+                
+                analyzeMicrophone();
+            } catch (error) {
+                console.error('Microphone error:', error);
+                document.getElementById('liveAnalysis').innerHTML = `
+                    <div class="error">❌ Microphone error: ${error.message}</div>
+                `;
+            }
+        }
+        
+        // Analyze microphone input
+        async function analyzeMicrophone() {
+            if (!isAnalyzing) return;
+            
+            const bufferLength = analyzerNode.fftSize;
+            const dataArray = new Float32Array(bufferLength);
+            analyzerNode.getFloatTimeDomainData(dataArray);
+            
+            // Calculate RMS amplitude for noise gating
+            let rms = 0;
+            let peak = 0;
+            for (let i = 0; i < dataArray.length; i++) {
+                const sample = Math.abs(dataArray[i]);
+                rms += dataArray[i] * dataArray[i];
+                if (sample > peak) peak = sample;
+            }
+            rms = Math.sqrt(rms / dataArray.length);
+            
+            // Learn noise floor during first few seconds
+            if (!noiseCalibrationComplete && noiseFloorSamples < 150) { // ~5 seconds at 30fps
+                noiseFloor = (noiseFloor * noiseFloorSamples + rms) / (noiseFloorSamples + 1);
+                noiseFloorSamples++;
+                
+                if (noiseFloorSamples >= 150) {
+                    noiseCalibrationComplete = true;
+                    console.log(`Noise floor calibrated: ${noiseFloor.toFixed(4)}`);
+                    updateAnalysisDisplay(`<div class="info">🔇 Noise floor calibrated: ${noiseFloor.toFixed(4)}. Ready for analysis!</div>`);
+                }
+                
+                animationFrame = requestAnimationFrame(analyzeMicrophone);
+                return;
+            }
+            
+            // Enhanced noise gate with adaptive thresholds based on learned noise floor
+            const adaptiveRmsThreshold = Math.max(0.05, noiseFloor * 5); // At least 5x noise floor
+            const peakThreshold = Math.max(0.1, noiseFloor * 8);         // At least 8x noise floor
+            const dynamicRange = peak / (rms + 0.001); // Avoid division by zero
+            
+            // Only process if signal is significantly above noise floor AND has good dynamic range
+            if (rms < adaptiveRmsThreshold || peak < peakThreshold || dynamicRange < 3.0) {
+                // Signal too quiet or lacks dynamic range - likely noise
+                animationFrame = requestAnimationFrame(analyzeMicrophone);
+                return;
+            }
+            
+            console.log(`Audio levels - RMS: ${rms.toFixed(4)}, Peak: ${peak.toFixed(4)}, Ratio: ${dynamicRange.toFixed(2)}`); // Debug log
+            
+            // Process with the engine
+            if (audioProcessor && musicSystem) {
+                try {
+                    const result = await audioProcessor.processAudio(dataArray);
+                    console.log('Analysis result:', result); // Debug log
+                    
+                    if (result && result.fundamentalFrequency > 50) {
+                        const musicAnalysis = musicSystem.analyzeFrequency(result.fundamentalFrequency);
+                        
+                        // Store detected note for verification playback
+                        const noteData = {
+                            frequency: result.fundamentalFrequency,
+                            timestamp: Date.now(),
+                            relativeTime: Date.now() - sessionStartTime,
+                            analysis: getDetailedSvaraAnalysis(result.fundamentalFrequency)
+                        };
+                        detectedNotes.push(noteData);
+                        
+                        // Enhanced display with Shruti detection for Indian systems
+                        const displayText = await formatAnalysisResultWithShruti(result, musicAnalysis);
+                        updateAnalysisDisplay(displayText);
+                    } else {
+                        // Debug output for failed analysis
+                        if (!result) {
+                            console.log('No result from processAudio');
+                        } else if (!result.fundamentalFrequency) {
+                            console.log('No fundamentalFrequency in result:', result);
+                        } else if (result.fundamentalFrequency <= 50) {
+                            console.log('Frequency too low:', result.fundamentalFrequency);
+                        }
+                    }
+                } catch (error) {
+                    console.error('Analysis error:', error);
+                    updateAnalysisDisplay(`<div class="error">Analysis Error: ${error.message}</div>`);
+                }
+            } else {
+                // Debug: Check if components are missing
+                if (!audioProcessor) console.log('No audioProcessor');
+                if (!musicSystem) console.log('No musicSystem');
+            }
+            
+            animationFrame = requestAnimationFrame(analyzeMicrophone);
+        }
+        
+        // Enhanced format analysis result with Shruti detection
+        async function formatAnalysisResultWithShruti(audioResult, musicResult) {
+            const timestamp = new Date().toLocaleTimeString();
+            let output = `[${timestamp}] `;
+            
+            const systemType = document.getElementById('musicSystem').value;
+            const frequency = audioResult.fundamentalFrequency;
+            
+            // Indian music systems with detailed Shruti analysis
+            if (systemType === 'carnatic' || systemType === 'hindustani') {
+                const analysis = getDetailedSvaraAnalysis(frequency);
+                
+                // Format: Closest Swara, Closest Octave, actual Frequency (Shruthi set by user)
+                output += `Closest Swara: ${analysis.closestSvara} | `;
+                output += `Closest Octave: ${analysis.closestOctave} | `;
+                output += `Actual Frequency: ${analysis.actualFrequency.toFixed(2)} Hz`;
+                
+                // Add cents deviation if significant
+                if (Math.abs(analysis.cents) > 5) {
+                    output += ` (${analysis.cents > 0 ? '+' : ''}${analysis.cents} cents)`;
+                }
+                
+                return output;
+            }
+            
+            // Fallback to original formatting for Western
+            return formatAnalysisResult(audioResult, musicResult);
+        }
+        
+        // Convert frequency to closest Indian Svara with detailed analysis
+        function getDetailedSvaraAnalysis(frequency) {
+            // Get user-selected Shruti (Sa frequency)
+            const shrutiSelect = document.getElementById('shrutiSelect');
+            let saFreq = 261.63; // Default to C4
+            
+            if (shrutiSelect.value !== 'auto') {
+                saFreq = parseFloat(shrutiSelect.value);
+            }
+            
+            // Find the closest octave first
+            let octave = Math.round(Math.log2(frequency / saFreq));
+            let baseFreqForOctave = saFreq * Math.pow(2, octave);
+            
+            // Calculate ratio within the octave
+            let ratio = frequency / baseFreqForOctave;
+            
+            // If ratio is too high or low, adjust octave
+            while (ratio >= 2.0) {
+                octave++;
+                baseFreqForOctave *= 2;
+                ratio = frequency / baseFreqForOctave;
+            }
+            while (ratio < 0.5) {
+                octave--;
+                baseFreqForOctave /= 2;
+                ratio = frequency / baseFreqForOctave;
+            }
+            
+            // Define Svara frequency ratios (just intonation)
+            const svaras = [
+                { name: 'Sa', ratio: 1.000, western: 'C' },
+                { name: 'Ri', ratio: 1.125, western: 'D' },    // 9/8
+                { name: 'Ga', ratio: 1.250, western: 'E' },    // 5/4
+                { name: 'Ma', ratio: 1.333, western: 'F' },    // 4/3
+                { name: 'Pa', ratio: 1.500, western: 'G' },    // 3/2
+                { name: 'Dha', ratio: 1.667, western: 'A' },   // 5/3
+                { name: 'Ni', ratio: 1.875, western: 'B' }     // 15/8
+            ];
+            
+            // Find closest Svara
+            let closestSvara = svaras[0];
+            let minDifference = Math.abs(ratio - svaras[0].ratio);
+            
+            for (let svara of svaras) {
+                let difference = Math.abs(ratio - svara.ratio);
+                if (difference < minDifference) {
+                    minDifference = difference;
+                    closestSvara = svara;
+                }
+            }
+            
+            // Calculate octave name
+            let octaveName;
+            if (octave < 0) octaveName = 'Mandra';
+            else if (octave === 0) octaveName = 'Madhya';
+            else if (octave === 1) octaveName = 'Tara';
+            else if (octave > 1) octaveName = `Tara+${octave-1}`;
+            else octaveName = `Mandra+${Math.abs(octave)-1}`;
+            
+            // Calculate closest frequency and cents deviation
+            const closestFreq = baseFreqForOctave * closestSvara.ratio;
+            const cents = Math.round(1200 * Math.log2(frequency / closestFreq));
+            
+            // Western note equivalent (with octave number)
+            const westernOctaveNumber = 4 + octave;
+            const westernNote = `${closestSvara.western}${westernOctaveNumber}`;
+            
+            return {
+                closestSvara: closestSvara.name,
+                closestOctave: octaveName,
+                actualFrequency: frequency,
+                cents: cents,
+                closestFreq: closestFreq
+            };
+        }
+        
+        // Original format analysis result (for Western)
+        function formatAnalysisResult(audioResult, musicResult) {
+            const timestamp = new Date().toLocaleTimeString();
+            let output = `[${timestamp}] `;
+            
+            const systemType = document.getElementById('musicSystem').value;
+            
+            switch (systemType) {
+                case 'western':
+                    output += `Note: ${musicResult.note} | `;
+                    output += `Frequency: ${audioResult.fundamentalFrequency.toFixed(2)} Hz | `;
+                    output += `Cents: ${musicResult.cents > 0 ? '+' : ''}${musicResult.cents} | `;
+                    output += `Confidence: ${(audioResult.confidence * 100).toFixed(1)}%`;
+                    break;
+                    
+                case 'carnatic':
+                    output += `Swara: ${musicResult.swara} | `;
+                    output += `Octave: ${musicResult.octave} | `;
+                    output += `Frequency: ${audioResult.fundamentalFrequency.toFixed(2)} Hz | `;
+                    output += `Cents: ${musicResult.cents > 0 ? '+' : ''}${musicResult.cents}`;
+                    if (musicResult.possibleRagas && musicResult.possibleRagas.length > 0) {
+                        output += ` | Ragas: ${musicResult.possibleRagas.slice(0, 3).join(', ')}`;
+                    }
+                    break;
+                    
+                case 'hindustani':
+                    output += `Swara: ${musicResult.swara} | `;
+                    output += `Octave: ${musicResult.octave} | `;
+                    output += `Frequency: ${audioResult.fundamentalFrequency.toFixed(2)} Hz | `;
+                    output += `Cents: ${musicResult.cents > 0 ? '+' : ''}${musicResult.cents}`;
+                    if (musicResult.possibleRagas && musicResult.possibleRagas.length > 0) {
+                        output += ` | Ragas: ${musicResult.possibleRagas.slice(0, 3).join(', ')}`;
+                    }
+                    break;
+            }
+            
+            return output;
+        }
+        
+        // Update analysis display (scrollable, preserves all logs)
+        function updateAnalysisDisplay(text) {
+            const display = document.getElementById('liveAnalysis');
+            
+            // Append new line instead of replacing
+            display.innerHTML += text + '\n';
+            
+            // Auto-scroll to bottom to show latest
+            display.scrollTop = display.scrollHeight;
+        }
+        
+        // Stop microphone analysis
+        function stopMicrophoneAnalysis() {
+            isAnalyzing = false;
+            
+            if (animationFrame) {
+                cancelAnimationFrame(animationFrame);
+            }
+            
+            if (microphoneSource) {
+                microphoneSource.disconnect();
+            }
+            
+            if (microphoneStream) {
+                microphoneStream.getTracks().forEach(track => track.stop());
+            }
+            
+            document.getElementById('startMicBtn').disabled = false;
+            document.getElementById('stopMicBtn').disabled = true;
+            
+            // Show verify button if notes were detected
+            if (detectedNotes.length > 0) {
+                const verifyBtn = document.getElementById('verifyBtn');
+                verifyBtn.style.display = 'inline-block';
+                verifyBtn.disabled = false;
+                
+                // Add success message
+                const timestamp = new Date().toLocaleTimeString();
+                updateAnalysisDisplay(`[${timestamp}] Analysis stopped. ${detectedNotes.length} notes captured. Click "Verify What You Sang" to hear them back!`);
+            }
+        }
+        
+        // Clear analysis display
+        function clearAnalysis() {
+            document.getElementById('liveAnalysis').innerHTML = '';
+            detectedNotes = [];
+            document.getElementById('verifyBtn').style.display = 'none';
+            document.getElementById('verifyBtn').disabled = true;
+        }
+        
+        // Verify what you sang - play back detected notes
+        async function verifyWhatYouSang() {
+            if (detectedNotes.length === 0) {
+                updateAnalysisDisplay('[ERROR] No notes to verify!');
+                return;
+            }
+            
+            try {
+                const verifyBtn = document.getElementById('verifyBtn');
+                verifyBtn.disabled = true;
+                verifyBtn.textContent = '🔊 Playing Back...';
+                
+                updateAnalysisDisplay(`[${new Date().toLocaleTimeString()}] 🎵 Playing back ${detectedNotes.length} detected notes...`);
+                
+                // Group notes by time intervals to avoid too rapid playback
+                const groupedNotes = groupNotesByInterval(detectedNotes, 500); // 500ms intervals
+                
+                for (let i = 0; i < groupedNotes.length; i++) {
+                    const noteGroup = groupedNotes[i];
+                    const avgFreq = noteGroup.reduce((sum, note) => sum + note.frequency, 0) / noteGroup.length;
+                    const analysis = getDetailedSvaraAnalysis(avgFreq);
+                    
+                    // Play the note
+                    await playTone(avgFreq, 0.8, `${analysis.closestSvara} (${avgFreq.toFixed(1)} Hz)`);
+                    
+                    // Short pause between notes
+                    if (i < groupedNotes.length - 1) {
+                        await delay(200);
+                    }
+                }
+                
+                updateAnalysisDisplay(`[${new Date().toLocaleTimeString()}] ✅ Playback complete! You sang ${groupedNotes.length} distinct notes.`);
+                
+            } catch (error) {
+                console.error('Verification playback error:', error);
+                updateAnalysisDisplay(`[ERROR] Playback failed: ${error.message}`);
+            } finally {
+                const verifyBtn = document.getElementById('verifyBtn');
+                verifyBtn.disabled = false;
+                verifyBtn.textContent = '🔍 Verify What You Sang';
+            }
+        }
+        
+        // Group notes by time intervals to create cleaner playback
+        function groupNotesByInterval(notes, intervalMs) {
+            if (notes.length === 0) return [];
+            
+            const grouped = [];
+            let currentGroup = [notes[0]];
+            
+            for (let i = 1; i < notes.length; i++) {
+                const timeDiff = notes[i].relativeTime - notes[i-1].relativeTime;
+                
+                if (timeDiff < intervalMs) {
+                    currentGroup.push(notes[i]);
+                } else {
+                    grouped.push(currentGroup);
+                    currentGroup = [notes[i]];
+                }
+            }
+            
+            // Add the last group
+            if (currentGroup.length > 0) {
+                grouped.push(currentGroup);
+            }
+            
+            return grouped;
+        }
+        
+        // Play a single tone with WebAudio API (reusing from Sa-Pa-Sa demo)
+        function playTone(frequency, duration, noteName = '') {
+            return new Promise((resolve) => {
+                if (!audioContext) {
+                    resolve();
+                    return;
+                }
+                
+                // Create oscillator for sine wave tone
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                // Connect oscillator -> gain -> output
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                // Configure the tone
+                oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
+                oscillator.type = 'sine'; // Pure sine wave for clear pitch
+                
+                // Smooth volume envelope (fade in/out to avoid clicks)
+                const now = audioContext.currentTime;
+                gainNode.gain.setValueAtTime(0, now);
+                gainNode.gain.linearRampToValueAtTime(0.2, now + 0.1); // Fade in
+                gainNode.gain.linearRampToValueAtTime(0.2, now + duration - 0.1); // Hold
+                gainNode.gain.linearRampToValueAtTime(0, now + duration); // Fade out
+                
+                // Start and stop the tone
+                oscillator.start(now);
+                oscillator.stop(now + duration);
+                
+                // Show live feedback
+                if (noteName) {
+                    updateAnalysisDisplay(`🔊 Playing: ${noteName}`);
+                }
+                
+                // Resolve when tone ends
+                oscillator.onended = resolve;
+            });
+        }
+        
+        // Simple delay utility (reusing from Sa-Pa-Sa demo)
+        function delay(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+        
+        // Start Sa-Pa-Sa shruti detection
+        async function startShrutiDetection() {
+            try {
+                isDetectingShruti = true;
+                saPaPatternBuffer = [];
+                detectedSaFrequency = null;
+                detectedPaFrequency = null;
+                saPaCycles = 0;
+                
+                document.getElementById('detectShrutiBtn').disabled = true;
+                document.getElementById('liveAnalysis').innerHTML = `
+                    <div class="info">🎵 Listening for Sa-Pa-Sa-Pa pattern...<br>
+                    Please sing: Sa → Pa → Sa → Pa → Sa → Pa → Sa<br>
+                    Hold each note steady for 1-2 seconds.</div>
+                `;
+                
+                // Start microphone if not already running
+                if (!isAnalyzing) {
+                    await startMicrophoneAnalysis();
+                }
+                
+                // Listen for Sa-Pa pattern for 15 seconds
+                setTimeout(() => {
+                    if (isDetectingShruti) {
+                        analyzeSaPaPattern();
+                    }
+                }, 15000);
+            } catch (error) {
+                console.error('Shruti detection error:', error);
+                document.getElementById('liveAnalysis').innerHTML = `
+                    <div class="error">❌ Shruti detection error: ${error.message}</div>
+                `;
+                document.getElementById('detectShrutiBtn').disabled = false;
+            }
+        }
+        
+        // Analyze Sa-Pa pattern
+        function analyzeSaPaPattern() {
+            isDetectingShruti = false;
+            document.getElementById('detectShrutiBtn').disabled = false;
+            
+            if (detectedSaFrequency && saPaCycles >= 2) {
+                // Convert frequency to note name
+                const noteResult = musicSystem.frequencyToNote(detectedSaFrequency);
+                
+                document.getElementById('liveAnalysis').innerHTML = `
+                    <div class="success">✅ Shruti detected: ${noteResult.note}<br>
+                    Completed ${saPaCycles} Sa-Pa-Sa cycles<br>
+                    Setting as reference...</div>
+                `;
+                
+                // Update shruti selection
+                const shrutiSelect = document.getElementById('shrutiSelect');
+                for (let option of shrutiSelect.options) {
+                    if (Math.abs(parseFloat(option.value) - detectedSaFrequency) < 10) {
+                        shrutiSelect.value = option.value;
+                        break;
+                    }
+                }
+            } else {
+                document.getElementById('liveAnalysis').innerHTML = `
+                    <div class="error">❌ Could not detect clear Sa-Pa pattern<br>
+                    Please try again with steady notes.</div>
+                `;
+            }
+        }
+        
+        // Play test note
+        function playTestNote() {
+            initAudio();
+            
+            if (testOscillator) {
+                testOscillator.stop();
+            }
+            
+            const frequency = parseFloat(document.getElementById('testNote').value);
+            
+            testOscillator = audioContext.createOscillator();
+            testOscillator.frequency.value = frequency;
+            testOscillator.type = 'sine';
+            
+            const gainNode = audioContext.createGain();
+            gainNode.gain.value = 0.3;
+            
+            testOscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            testOscillator.start();
+        }
+        
+        // Stop test note
+        function stopTestNote() {
+            if (testOscillator) {
+                testOscillator.stop();
+                testOscillator = null;
+            }
+        }
+        
+        // Analyze test note
+        function analyzeTestNote() {
+            const frequency = parseFloat(document.getElementById('testNote').value);
+            
+            if (musicSystem) {
+                const result = musicSystem.analyzeFrequency(frequency);
+                
+                let output = '<div class="success">';
+                const systemType = document.getElementById('musicSystem').value;
+                
+                switch (systemType) {
+                    case 'western':
+                        output += `Note: ${result.note}<br>`;
+                        output += `Octave: ${result.octave}<br>`;
+                        output += `Frequency: ${frequency} Hz<br>`;
+                        output += `Cents deviation: ${result.cents}`;
+                        break;
+                    case 'carnatic':
+                    case 'hindustani':
+                        output += `Swara: ${result.swara}<br>`;
+                        output += `Octave: ${result.octave}<br>`;
+                        output += `Frequency: ${frequency} Hz<br>`;
+                        if (result.possibleRagas) {
+                            output += `Possible Ragas: ${result.possibleRagas.join(', ')}`;
+                        }
+                        break;
+                }
+                output += '</div>';
+                
+                document.getElementById('testNoteAnalysis').innerHTML = output;
+            }
+        }
+        
+        // 🔊 Sa-Pa-Sa Demo Audio Synthesis
+        async function playSaPaDemo() {
+            const demoBtn = document.getElementById('demoBtn');
+            
+            try {
+                demoBtn.disabled = true;
+                demoBtn.textContent = '🔊 Playing Demo...';
+                
+                updateAnalysisDisplay('<div class="info">🎵 Playing Sa-Pa-Sa demonstration...<br><br>Listen carefully to learn the correct pitch pattern:<br>• Sa = base note (Madhya Sthayi)<br>• Pa = perfect fifth higher (1.5x frequency)<br>• Sa₊₁ = higher octave (Tara Sthayi)<br>• Pa₋₁ = lower octave Pa (Mandra Sthayi)<br>• Pattern: Sa → Pa → Sa₊₁ → Pa → Sa → Pa₋₁ → Sa</div>');
+                
+                // Initialize audio context if not already done
+                if (!audioContext) {
+                    await initAudio();
+                }
+                
+                // Base Sa frequency (middle C)
+                const saFreq = 261.63; // C4 - Madhya Sthayi Sa
+                const paFreq = saFreq * 1.5; // Perfect fifth: G4 (392.44 Hz)
+                const saHighFreq = saFreq * 2; // Tara Sthayi Sa (C5 - 523.26 Hz)
+                const paLowFreq = paFreq / 2; // Mandra Sthayi Pa (G3 - 196.22 Hz)
+                
+                // Play complete Sa-Pa-Sa+1-Pa-Sa-Pa-1-Sa pattern
+                await playTone(saFreq, 1.0, 'Sa'); // Sa (Madhya)
+                await delay(150);
+                await playTone(paFreq, 1.0, 'Pa'); // Pa (Madhya)
+                await delay(150);
+                await playTone(saHighFreq, 1.0, 'Sa₊₁'); // Sa (Tara)
+                await delay(150);
+                await playTone(paFreq, 1.0, 'Pa'); // Pa (Madhya)
+                await delay(150);  
+                await playTone(saFreq, 1.0, 'Sa'); // Sa (Madhya)
+                await delay(150);
+                await playTone(paLowFreq, 1.0, 'Pa₋₁'); // Pa (Mandra)
+                await delay(150);
+                await playTone(saFreq, 1.2, 'Sa'); // Final Sa (Madhya)
+                
+                updateAnalysisDisplay(`<div class="success">✅ Complete Sa-Pa-Sa octave pattern demo complete!<br><br>Now you try:<br>1. Tap "🎵 Detect Shruti"<br>2. Sing the same pattern: Sa → Pa → Sa₊₁ → Pa → Sa → Pa₋₁ → Sa<br>3. Include all three octaves (Mandra, Madhya, Tara)<br><br>Frequencies used:<br>• Sa (Madhya): ${saFreq.toFixed(1)} Hz<br>• Pa (Madhya): ${paFreq.toFixed(1)} Hz<br>• Sa₊₁ (Tara): ${saHighFreq.toFixed(1)} Hz<br>• Pa₋₁ (Mandra): ${paLowFreq.toFixed(1)} Hz<br>• Perfect fifth ratio: ${(paFreq/saFreq).toFixed(3)}</div>`);
+                
+            } catch (error) {
+                updateAnalysisDisplay(`<div class="error">❌ Demo playback failed: ${error.message}</div>`);
+            } finally {
+                demoBtn.disabled = false;
+                demoBtn.textContent = '🔊 Play Sa-Pa-Sa Demo';
+            }
+        }
+        
+        // Play a single tone with WebAudio API
+        function playTone(frequency, duration, noteName) {
+            return new Promise((resolve) => {
+                if (!audioContext) {
+                    resolve();
+                    return;
+                }
+                
+                // Create oscillator for sine wave tone
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                // Connect oscillator -> gain -> output
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                // Configure the tone
+                oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
+                oscillator.type = 'sine'; // Pure sine wave for clear pitch
+                
+                // Smooth volume envelope (fade in/out to avoid clicks)
+                const now = audioContext.currentTime;
+                gainNode.gain.setValueAtTime(0, now);
+                gainNode.gain.linearRampToValueAtTime(0.3, now + 0.1); // Fade in
+                gainNode.gain.linearRampToValueAtTime(0.3, now + duration - 0.1); // Hold
+                gainNode.gain.linearRampToValueAtTime(0, now + duration); // Fade out
+                
+                // Start and stop the tone
+                oscillator.start(now);
+                oscillator.stop(now + duration);
+                
+                // Show live feedback
+                updateAnalysisDisplay(`<div class="info">🎵 Playing ${noteName}: ${frequency.toFixed(1)} Hz</div>`);
+                
+                // Resolve when tone ends
+                oscillator.onended = resolve;
+            });
+        }
+        
+        // Simple delay utility
+        function delay(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+    </script>
+</body>
+</html>

@@ -22,6 +22,7 @@ module.exports = {
       sourcemap: true
     }
   ],
+  external: ['fs', 'stream', 'web-audio-api'], // Exclude Node.js modules
   plugins: [
     resolve({
       browser: true,

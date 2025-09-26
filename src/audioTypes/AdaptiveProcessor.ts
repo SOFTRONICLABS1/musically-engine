@@ -11,6 +11,7 @@ import { FFT } from '../algorithms/FFT';
 import { AutoDetector, AudioTypeResult, AudioType } from './AutoDetector';
 import { VocalProcessor, VocalAnalysisResult, VocalConfig } from './VocalProcessor';
 import { InstrumentProcessor, InstrumentAnalysisResult, InstrumentConfig, InstrumentFamily } from './InstrumentProcessor';
+import { NoiseReducer, NoiseReductionConfig } from '../core/NoiseReducer';
 
 /**
  * Configuration for the adaptive processing pipeline
@@ -39,6 +40,9 @@ export interface AdaptiveConfig {
     
     /** Configuration for instrument processor */
     instrumentConfig?: Partial<InstrumentConfig>;
+    
+    /** Configuration for noise reduction */
+    noiseReductionConfig?: Partial<NoiseReductionConfig>;
     
     /** Whether to enable automatic parameter adaptation */
     enableAdaptation?: boolean;
@@ -133,6 +137,7 @@ export class AdaptiveProcessor {
     private vocalProcessor: VocalProcessor;
     private instrumentProcessor: InstrumentProcessor;
     private fft: FFT;
+    private noiseReducer: NoiseReducer;
     private config: Required<AdaptiveConfig>;
     private processingHistory: ProcessingHistory[] = [];
     private adaptedParameters: Map<AudioType, any> = new Map();
@@ -147,6 +152,7 @@ export class AdaptiveProcessor {
             enableQualityAssessment: config.enableQualityAssessment ?? true,
             vocalConfig: config.vocalConfig ?? {},
             instrumentConfig: config.instrumentConfig ?? {},
+            noiseReductionConfig: config.noiseReductionConfig ?? {},
             enableAdaptation: config.enableAdaptation ?? true,
             adaptationHistoryLength: config.adaptationHistoryLength ?? 100
         };
@@ -169,6 +175,18 @@ export class AdaptiveProcessor {
             ...this.config.instrumentConfig
         });
         
+        // Initialize noise reducer with enhanced settings for better noise rejection
+        this.noiseReducer = new NoiseReducer(this.config.sampleRate, {
+            enabled: true,
+            aggressiveness: 0.8,      // Higher aggressiveness for better noise rejection
+            noiseFloorDb: -50,        // Lower threshold for quieter noise rejection
+            spectralSmoothing: 0.9,   // More smoothing to reduce artifacts
+            adaptiveMode: true,       // Auto-adjust to changing noise conditions
+            windowSize: this.config.frameSize,
+            overlapRatio: 0.75,       // Higher overlap for better processing
+            ...this.config.noiseReductionConfig
+        });
+        
         this.initializeAdaptedParameters();
     }
     
@@ -178,20 +196,23 @@ export class AdaptiveProcessor {
     public async processAudio(buffer: Float32Array): Promise<AdaptiveAnalysisResult> {
         const startTime = performance.now();
         
-        // Step 1: Multi-pass audio type detection
-        const detectionResult = await this.performMultiPassDetection(buffer);
+        // Step 0: Apply noise reduction to clean up the signal
+        const cleanedBuffer = this.noiseReducer.process(buffer);
+        
+        // Step 1: Multi-pass audio type detection (use cleaned buffer)
+        const detectionResult = await this.performMultiPassDetection(cleanedBuffer);
         
         // Step 2: Apply adaptation if enabled
         if (this.config.enableAdaptation) {
             this.applyAdaptation(detectionResult.audioType);
         }
         
-        // Step 3: Route to appropriate processor
-        const processingResult = await this.routeToProcessor(buffer, detectionResult);
+        // Step 3: Route to appropriate processor (use cleaned buffer)
+        const processingResult = await this.routeToProcessor(cleanedBuffer, detectionResult);
         
-        // Step 4: Quality assessment
+        // Step 4: Quality assessment (use cleaned buffer)
         const quality = this.config.enableQualityAssessment 
-            ? this.assessQuality(buffer, detectionResult, processingResult)
+            ? this.assessQuality(cleanedBuffer, detectionResult, processingResult)
             : this.getDefaultQuality();
         
         // Step 5: Build comprehensive result

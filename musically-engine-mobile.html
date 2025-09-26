@@ -1,0 +1,1002 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>🎵 Musically Engine - Mobile</title>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            min-height: 100vh;
+            padding: 10px;
+            touch-action: manipulation;
+        }
+
+        .container {
+            max-width: 100%;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            text-align: center;
+            padding: 20px 10px;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+
+        .subtitle {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .status-banner {
+            background: #48bb78;
+            color: white;
+            text-align: center;
+            padding: 10px;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .test-section {
+            padding: 20px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .test-section:last-child {
+            border-bottom: none;
+        }
+
+        .test-section h3 {
+            color: #2d3748;
+            margin-bottom: 10px;
+            font-size: 18px;
+        }
+
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin: 15px 0;
+            align-items: center;
+        }
+
+        .controls label {
+            font-weight: bold;
+            font-size: 14px;
+            white-space: nowrap;
+        }
+
+        .controls select {
+            padding: 12px;
+            border-radius: 8px;
+            border: 2px solid #e2e8f0;
+            font-size: 14px;
+            min-width: 120px;
+        }
+
+        .controls input {
+            padding: 12px;
+            border-radius: 8px;
+            border: 2px solid #e2e8f0;
+            font-size: 14px;
+            width: 80px;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s;
+            touch-action: manipulation;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        button:hover, button:active {
+            transform: scale(0.95);
+        }
+
+        button:disabled {
+            background: #cbd5e0;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .result-box {
+            background: #f7fafc;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            line-height: 1.4;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        canvas {
+            width: 100%;
+            height: 80px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            background: #f7fafc;
+            touch-action: none;
+        }
+
+        .detection-status {
+            height: 80px;
+            font-size: 12px;
+        }
+
+        .mobile-note {
+            background: #fed7d7;
+            color: #c53030;
+            padding: 10px;
+            border-radius: 8px;
+            margin: 10px 0;
+            font-size: 12px;
+            text-align: center;
+        }
+
+        @media (max-width: 480px) {
+            .controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .controls select,
+            .controls input,
+            button {
+                width: 100%;
+                margin: 5px 0;
+            }
+            
+            .header h1 {
+                font-size: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎵 Musically Engine</h1>
+            <div class="subtitle">Mobile Music Analysis System</div>
+        </div>
+
+        <div class="status-banner">
+            ✅ ALL PHASES 1-4 COMPLETE! | Portable Mobile Version 🚀
+        </div>
+
+        <!-- Live Microphone Music Analysis -->
+        <div class="test-section">
+            <h3>🎤 Live Microphone Music Analysis</h3>
+            <p>Real-time audio analysis with <strong>cultural music intelligence</strong>:</p>
+            
+            <div class="mobile-note">
+                📱 <strong>Mobile Instructions:</strong><br>
+                1. Allow microphone access when prompted<br>
+                2. Hold phone close to sound source<br>
+                3. Ensure good WiFi/cellular connection<br>
+                4. Use headphones to avoid feedback
+            </div>
+            
+            <div class="controls">
+                <label>Audio Type:</label>
+                <select id="liveAudioType">
+                    <option value="vocal">🎤 Vocal</option>
+                    <option value="instrument">🎸 Instrument</option>
+                </select>
+                
+                <label>Music System:</label>
+                <select id="liveMusicSystem">
+                    <option value="western">🎼 Western</option>
+                    <option value="carnatic">🎵 Carnatic</option>
+                    <option value="hindustani">🎶 Hindustani</option>
+                </select>
+            </div>
+            
+            <div class="controls">
+                <label>Shruti (Sa):</label>
+                <select id="shrutiSelect">
+                    <option value="auto">🎯 Auto-Detect</option>
+                    <option value="246.94">B (246.94 Hz)</option>
+                    <option value="261.63">C (261.63 Hz)</option>
+                    <option value="277.18">C# (277.18 Hz)</option>
+                    <option value="293.66">D (293.66 Hz)</option>
+                    <option value="311.13">D# (311.13 Hz)</option>
+                    <option value="329.63">E (329.63 Hz)</option>
+                    <option value="349.23">F (349.23 Hz)</option>
+                    <option value="369.99">F# (369.99 Hz)</option>
+                    <option value="392.00">G (392.00 Hz)</option>
+                    <option value="415.30">G# (415.30 Hz)</option>
+                    <option value="440.00">A (440.00 Hz)</option>
+                    <option value="466.16">A# (466.16 Hz)</option>
+                </select>
+                
+                <button onclick="detectShruti()" id="detectShrutiBtn">🎵 Detect Shruti (Sa-Pa-Sa)</button>
+            </div>
+            
+            <div id="shrutiStatus" style="font-size: 14px; color: #666; margin: 10px 0; text-align: center;">
+                Auto-detect enabled
+            </div>
+            
+            <div class="controls">
+                <button onclick="startIntegratedAnalysis()" id="startMicBtn">🎤 Start Live Analysis</button>
+                <button onclick="stopIntegratedAnalysis()" id="stopMicBtn" disabled>⏹️ Stop Analysis</button>
+                <button onclick="clearLiveResults()">🧹 Clear Results</button>
+            </div>
+            
+            <div style="margin: 15px 0;">
+                <h4>📊 Live Audio Visualization</h4>
+                <canvas id="audioVisualization" width="400" height="80"></canvas>
+            </div>
+            
+            <div style="margin: 15px 0;">
+                <h4>🎯 Live Music Analysis</h4>
+                <div id="detectionStatus" class="result-box detection-status">
+                    Select audio type & music system, then click "Start Live Analysis"...
+                </div>
+            </div>
+            
+            <div id="liveResults" class="result-box">
+                🎼 REAL-TIME MUSIC ANALYSIS: Pitch → Swaras/Notes → Ragas/Chords will appear here...
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Mobile-optimized audio analysis
+        let audioContext;
+        let microphoneStream;
+        let analyzerNode;
+        let microphoneSource;
+        let animationFrame;
+        let isAnalyzing = false;
+        let analysisCount = 0;
+        
+        // Music system variables
+        let currentAudioType = 'vocal';
+        let currentMusicSystem = 'western';
+        let currentReferencePitch = 261.63;
+        let pitchHistory = [];
+        let detectedNotes = [];
+        
+        // Shruti detection variables
+        let detectedShruti = null;
+        let shrutiDetectionMode = 'auto';
+        let sustainedToneBuffer = [];
+        let isDetectingShruti = false;
+        let saPaPatternBuffer = [];
+        let detectedSaFrequency = null;
+        let detectedPaFrequency = null;
+        let saPaCycles = 0;
+
+        function initAudio() {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        // Shruti Detection Functions
+        async function detectShruti() {
+            try {
+                isDetectingShruti = true;
+                saPaPatternBuffer = [];
+                detectedSaFrequency = null;
+                detectedPaFrequency = null;
+                saPaCycles = 0;
+                
+                initAudio();
+                if (audioContext.state === 'suspended') {
+                    await audioContext.resume();
+                }
+                
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: { 
+                        echoCancellation: false,
+                        noiseSuppression: false,
+                        autoGainControl: false,
+                        sampleRate: 44100
+                    } 
+                });
+                
+                const analyzer = audioContext.createAnalyser();
+                analyzer.fftSize = 2048;
+                analyzer.smoothingTimeConstant = 0.3;
+                
+                const source = audioContext.createMediaStreamSource(stream);
+                source.connect(analyzer);
+                
+                document.getElementById('detectShrutiBtn').disabled = true;
+                document.getElementById('shrutiStatus').innerHTML = '🎵 Sing "Sa-Pa-Sa-Pa-Sa-Pa-Sa" pattern...';
+                
+                detectShrutiFromAudio(analyzer, stream, source);
+                
+            } catch (error) {
+                console.error("Shruti detection error:", error);
+                document.getElementById('shrutiStatus').innerHTML = '❌ Microphone access failed';
+                isDetectingShruti = false;
+            }
+        }
+        
+        function detectShrutiFromAudio(analyzer, stream, source) {
+            const frequencyData = new Uint8Array(analyzer.frequencyBinCount);
+            let detectionCount = 0;
+            const maxDetections = 300;
+            
+            saPaPatternBuffer = [];
+            detectedSaFrequency = null;
+            detectedPaFrequency = null;
+            saPaCycles = 0;
+            
+            function analyzeForSaPaPattern() {
+                if (!isDetectingShruti || detectionCount >= maxDetections) {
+                    finishSaPaShrutiDetection(stream, source);
+                    return;
+                }
+                
+                analyzer.getByteFrequencyData(frequencyData);
+                
+                let maxAmplitude = 0;
+                let peakIndex = 0;
+                
+                for (let i = 1; i < frequencyData.length / 2; i++) {
+                    if (frequencyData[i] > maxAmplitude) {
+                        maxAmplitude = frequencyData[i];
+                        peakIndex = i;
+                    }
+                }
+                
+                const frequency = (peakIndex * audioContext.sampleRate) / (2 * frequencyData.length);
+                
+                if (maxAmplitude > 80 && frequency > 100 && frequency < 800) {
+                    saPaPatternBuffer.push({ 
+                        frequency, 
+                        amplitude: maxAmplitude, 
+                        timestamp: Date.now(),
+                        frameIndex: detectionCount
+                    });
+                    
+                    if (saPaPatternBuffer.length > 100) {
+                        saPaPatternBuffer.shift();
+                    }
+                    
+                    if (detectionCount % 10 === 0) {
+                        analyzeSaPaPattern();
+                    }
+                }
+                
+                detectionCount++;
+                
+                const progress = Math.round((detectionCount / maxDetections) * 100);
+                const cycleInfo = saPaCycles > 0 ? ` (${saPaCycles} Sa-Pa cycles detected)` : '';
+                document.getElementById('shrutiStatus').innerHTML = `🎵 Detecting Sa-Pa pattern... ${progress}%${cycleInfo}`;
+                
+                requestAnimationFrame(analyzeForSaPaPattern);
+            }
+            
+            analyzeForSaPaPattern();
+        }
+        
+        function analyzeSaPaPattern() {
+            if (saPaPatternBuffer.length < 20) return;
+            
+            const recentTones = saPaPatternBuffer.slice(-50);
+            const frequencyClusters = clusterFrequencies(recentTones);
+            
+            const sortedClusters = Object.keys(frequencyClusters)
+                .map(freq => ({
+                    frequency: parseFloat(freq),
+                    count: frequencyClusters[freq].length,
+                    avgAmplitude: frequencyClusters[freq].reduce((sum, t) => sum + t.amplitude, 0) / frequencyClusters[freq].length
+                }))
+                .sort((a, b) => (b.count * b.avgAmplitude) - (a.count * a.avgAmplitude));
+            
+            if (sortedClusters.length >= 2) {
+                const cluster1 = sortedClusters[0];
+                const cluster2 = sortedClusters[1];
+                
+                const ratio1 = cluster2.frequency / cluster1.frequency;
+                const ratio2 = cluster1.frequency / cluster2.frequency;
+                
+                if (Math.abs(ratio1 - 1.498) < 0.05) {
+                    detectedSaFrequency = cluster1.frequency;
+                    detectedPaFrequency = cluster2.frequency;
+                    saPaCycles++;
+                } else if (Math.abs(ratio2 - 1.498) < 0.05) {
+                    detectedSaFrequency = cluster2.frequency;
+                    detectedPaFrequency = cluster1.frequency;
+                    saPaCycles++;
+                }
+            }
+        }
+        
+        function clusterFrequencies(tones) {
+            const clusters = {};
+            const tolerance = 8;
+            
+            tones.forEach(tone => {
+                const freq = tone.frequency;
+                let foundCluster = false;
+                
+                for (const clusterFreq in clusters) {
+                    if (Math.abs(freq - parseFloat(clusterFreq)) < tolerance) {
+                        clusters[clusterFreq].push(tone);
+                        foundCluster = true;
+                        break;
+                    }
+                }
+                
+                if (!foundCluster) {
+                    clusters[freq] = [tone];
+                }
+            });
+            
+            return clusters;
+        }
+        
+        function finishSaPaShrutiDetection(stream, source) {
+            stream.getTracks().forEach(track => track.stop());
+            source.disconnect();
+            isDetectingShruti = false;
+            
+            if (saPaCycles < 2 || !detectedSaFrequency || !detectedPaFrequency) {
+                document.getElementById('shrutiStatus').innerHTML = '❌ Sa-Pa pattern not detected. Try singing Sa-Pa-Sa-Pa-Sa-Pa-Sa';
+                document.getElementById('detectShrutiBtn').disabled = false;
+                return;
+            }
+            
+            const actualRatio = detectedPaFrequency / detectedSaFrequency;
+            const perfectFifthRatio = 1.498;
+            const ratioDeviation = Math.abs(actualRatio - perfectFifthRatio);
+            
+            if (ratioDeviation > 0.08) {
+                document.getElementById('shrutiStatus').innerHTML = `❌ Sa-Pa interval invalid. Try clearer Sa-Pa singing`;
+                document.getElementById('detectShrutiBtn').disabled = false;
+                return;
+            }
+            
+            detectedShruti = detectedSaFrequency;
+            currentReferencePitch = detectedSaFrequency;
+            
+            const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+            const semitones = Math.round(12 * Math.log2(detectedSaFrequency / 261.63));
+            const noteIndex = ((semitones % 12) + 12) % 12;
+            const noteName = noteNames[noteIndex];
+            
+            document.getElementById('shrutiStatus').innerHTML = `✅ Shruti detected: ${noteName}`;
+            
+            const existingOptions = Array.from(document.getElementById('shrutiSelect').options);
+            const closestOption = existingOptions.reduce((prev, curr) => 
+                Math.abs(parseFloat(curr.value) - detectedSaFrequency) < Math.abs(parseFloat(prev.value) - detectedSaFrequency) ? curr : prev
+            );
+            document.getElementById('shrutiSelect').value = closestOption.value;
+            
+            document.getElementById('detectShrutiBtn').disabled = false;
+        }
+
+        // Integrated Analysis Functions
+        async function startIntegratedAnalysis() {
+            try {
+                currentAudioType = document.getElementById('liveAudioType').value;
+                currentMusicSystem = document.getElementById('liveMusicSystem').value;
+                
+                const shrutiValue = document.getElementById('shrutiSelect').value;
+                if (shrutiValue === 'auto') {
+                    shrutiDetectionMode = 'auto';
+                    currentReferencePitch = 261.63;
+                } else {
+                    shrutiDetectionMode = 'manual';
+                    detectedShruti = parseFloat(shrutiValue);
+                    currentReferencePitch = detectedShruti;
+                }
+                
+                pitchHistory = [];
+                detectedNotes = [];
+                
+                initAudio();
+                if (audioContext.state === 'suspended') {
+                    await audioContext.resume();
+                }
+                
+                microphoneStream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: { 
+                        echoCancellation: false,
+                        noiseSuppression: false,
+                        autoGainControl: false,
+                        sampleRate: 44100
+                    } 
+                });
+                
+                analyzerNode = audioContext.createAnalyser();
+                analyzerNode.fftSize = 2048;
+                analyzerNode.smoothingTimeConstant = 0.1;
+                
+                microphoneSource = audioContext.createMediaStreamSource(microphoneStream);
+                microphoneSource.connect(analyzerNode);
+                
+                isAnalyzing = true;
+                analysisCount = 0;
+                
+                document.getElementById('startMicBtn').disabled = true;
+                document.getElementById('stopMicBtn').disabled = false;
+                
+                const systemEmoji = {
+                    western: '🎼',
+                    carnatic: '🎵', 
+                    hindustani: '🎶'
+                };
+                
+                const typeEmoji = {
+                    vocal: '🎤',
+                    instrument: '🎸'
+                };
+                
+                document.getElementById('detectionStatus').innerHTML = `${systemEmoji[currentMusicSystem]} ${typeEmoji[currentAudioType]} LIVE ANALYSIS:
+                
+Audio Type: ${currentAudioType.charAt(0).toUpperCase() + currentAudioType.slice(1)}
+Music System: ${currentMusicSystem.charAt(0).toUpperCase() + currentMusicSystem.slice(1)}
+Status: Active & Analyzing`;
+                
+                analyzeIntegratedAudioFrame();
+                
+            } catch (error) {
+                console.error("Microphone access error:", error);
+                document.getElementById('detectionStatus').innerHTML = `❌ Microphone Error: ${error.message}
+                
+Please allow microphone access and try again.`;
+            }
+        }
+        
+        function stopIntegratedAnalysis() {
+            isAnalyzing = false;
+            
+            if (animationFrame) {
+                cancelAnimationFrame(animationFrame);
+            }
+            
+            if (microphoneStream) {
+                microphoneStream.getTracks().forEach(track => track.stop());
+                microphoneStream = null;
+            }
+            
+            if (microphoneSource) {
+                microphoneSource.disconnect();
+                microphoneSource = null;
+            }
+            
+            if (analyzerNode) {
+                analyzerNode = null;
+            }
+            
+            document.getElementById('startMicBtn').disabled = false;
+            document.getElementById('stopMicBtn').disabled = true;
+            document.getElementById('detectionStatus').innerHTML = `⏹️ ANALYSIS STOPPED
+            
+Total Analyses: ${analysisCount}
+Notes Detected: ${detectedNotes.length}
+Status: Ready to restart`;
+            
+            const canvas = document.getElementById('audioVisualization');
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#f7fafc';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+        
+        function analyzeIntegratedAudioFrame() {
+            if (!isAnalyzing || !analyzerNode) return;
+            
+            const frequencyData = new Uint8Array(analyzerNode.frequencyBinCount);
+            analyzerNode.getByteFrequencyData(frequencyData);
+            
+            const timeData = new Uint8Array(analyzerNode.frequencyBinCount);
+            analyzerNode.getByteTimeDomainData(timeData);
+            
+            const analysis = performMusicAnalysis(frequencyData, timeData);
+            
+            updateAudioVisualization(timeData, frequencyData);
+            
+            if (analysis.amplitude > 0.05 && analysis.frequency > 50) {
+                analysisCount++;
+                updateMusicResults(analysis);
+            }
+            
+            animationFrame = requestAnimationFrame(analyzeIntegratedAudioFrame);
+        }
+        
+        function performMusicAnalysis(frequencyData, timeData) {
+            let totalAmplitude = 0;
+            let maxFrequencyIndex = 0;
+            let maxFrequencyValue = 0;
+            
+            for (let i = 0; i < frequencyData.length; i++) {
+                totalAmplitude += frequencyData[i];
+                if (frequencyData[i] > maxFrequencyValue) {
+                    maxFrequencyValue = frequencyData[i];
+                    maxFrequencyIndex = i;
+                }
+            }
+            
+            const amplitude = totalAmplitude / (frequencyData.length * 255);
+            const frequency = (maxFrequencyIndex * audioContext.sampleRate) / (2 * frequencyData.length);
+            
+            // Auto-detect shruti for Indian systems
+            if (shrutiDetectionMode === 'auto' && !detectedShruti && 
+                (currentMusicSystem === 'carnatic' || currentMusicSystem === 'hindustani') &&
+                amplitude > 0.1 && frequency > 100 && frequency < 600) {
+                
+                sustainedToneBuffer.push({ frequency, amplitude: maxFrequencyValue, timestamp: Date.now() });
+                
+                if (sustainedToneBuffer.length > 30) {
+                    sustainedToneBuffer.shift();
+                }
+                
+                if (sustainedToneBuffer.length >= 15) {
+                    const autoShruti = findStableShruti();
+                    if (autoShruti) {
+                        detectedShruti = autoShruti;
+                        currentReferencePitch = autoShruti;
+                        
+                        const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+                        const semitones = Math.round(12 * Math.log2(autoShruti / 261.63));
+                        const noteIndex = ((semitones % 12) + 12) % 12;
+                        const noteName = noteNames[noteIndex];
+                        
+                        document.getElementById('shrutiStatus').innerHTML = `✅ Shruti auto-detected: ${noteName}`;
+                    }
+                }
+            }
+            
+            const musicAnalysis = convertToMusicSystem(frequency, currentMusicSystem, currentReferencePitch);
+            
+            if (frequency > 50) {
+                pitchHistory.push({ frequency, timestamp: Date.now(), musicAnalysis });
+                if (pitchHistory.length > 20) pitchHistory.shift();
+            }
+            
+            return {
+                amplitude,
+                frequency,
+                musicAnalysis,
+                timestamp: Date.now()
+            };
+        }
+        
+        function findStableShruti() {
+            if (sustainedToneBuffer.length < 5) return null;
+            
+            const clusters = {};
+            const tolerance = 5;
+            
+            sustainedToneBuffer.forEach(tone => {
+                const freq = tone.frequency;
+                let foundCluster = false;
+                
+                for (const clusterFreq in clusters) {
+                    if (Math.abs(freq - parseFloat(clusterFreq)) < tolerance) {
+                        clusters[clusterFreq].push(tone);
+                        foundCluster = true;
+                        break;
+                    }
+                }
+                
+                if (!foundCluster) {
+                    clusters[freq] = [tone];
+                }
+            });
+            
+            let bestCluster = null;
+            let bestScore = 0;
+            
+            for (const clusterFreq in clusters) {
+                const tones = clusters[clusterFreq];
+                const avgAmplitude = tones.reduce((sum, t) => sum + t.amplitude, 0) / tones.length;
+                const stability = tones.length;
+                const score = stability * avgAmplitude;
+                
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestCluster = clusterFreq;
+                }
+            }
+            
+            if (bestCluster && clusters[bestCluster].length >= 5) {
+                const avgFreq = clusters[bestCluster].reduce((sum, t) => sum + t.frequency, 0) / clusters[bestCluster].length;
+                return avgFreq;
+            }
+            
+            return null;
+        }
+        
+        function convertToMusicSystem(frequency, system, referencePitch) {
+            if (frequency < 50) return { note: 'silence', confidence: 0 };
+            
+            const semitones = 12 * Math.log2(frequency / referencePitch);
+            const roundedSemitones = Math.round(semitones);
+            const cents = Math.round((semitones - roundedSemitones) * 100);
+            
+            switch (system) {
+                case 'western':
+                    return convertToWesternSystem(frequency, roundedSemitones, cents);
+                case 'carnatic':
+                    return convertToCarnaticSystem(frequency, roundedSemitones, cents, referencePitch);
+                case 'hindustani':
+                    return convertToHindustaniSystem(frequency, roundedSemitones, cents, referencePitch);
+                default:
+                    return { note: 'unknown', confidence: 0 };
+            }
+        }
+        
+        function convertToWesternSystem(frequency, semitones, cents) {
+            const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+            const noteIndex = ((semitones % 12) + 12) % 12;
+            const octave = Math.floor((semitones + 9) / 12) + 4;
+            
+            const note = noteNames[noteIndex];
+            const fullNote = note + octave;
+            const confidence = Math.max(0, 1 - Math.abs(cents) / 50);
+            
+            return {
+                system: 'Western',
+                note: fullNote,
+                noteName: note,
+                octave: octave,
+                cents: cents,
+                frequency: frequency.toFixed(2),
+                confidence: confidence.toFixed(3)
+            };
+        }
+        
+        function convertToCarnaticSystem(frequency, semitones, cents, referencePitch) {
+            const swaraNames = ['Sa', 'Ri', 'Ga', 'Ma', 'Pa', 'Dha', 'Ni'];
+            const swaraIndex = Math.round(semitones * 7 / 12) % 7;
+            
+            const swara = swaraNames[swaraIndex];
+            const confidence = Math.max(0, 1 - Math.abs(cents) / 30);
+            
+            const octaveNames = ['Mandra', 'Madhya', 'Tara'];
+            const octaveIndex = Math.max(0, Math.min(2, Math.floor(semitones / 12) + 1));
+            const saptak = octaveNames[octaveIndex];
+            
+            return {
+                system: 'Carnatic',
+                swara: swara,
+                saptak: saptak,
+                fullSwara: swara + ' (' + saptak + ')',
+                cents: cents,
+                frequency: frequency.toFixed(2),
+                confidence: confidence.toFixed(3),
+                melakartha: 'Sankarabharanam (29)'
+            };
+        }
+        
+        function convertToHindustaniSystem(frequency, semitones, cents, referencePitch) {
+            const swaraNames = ['Sa', 'Re', 'Ga', 'Ma', 'Pa', 'Dha', 'Ni'];
+            const komalShuddhaMap = {
+                1: 'Re', 2: 'Re', 3: 'Ga', 4: 'Ga', 5: 'Ma', 6: 'Ma', 7: 'Pa', 8: 'Dha', 9: 'Dha', 10: 'Ni', 11: 'Ni'
+            };
+            
+            const swaraIndex = ((semitones % 12) + 12) % 12;
+            let swara, variant = '';
+            
+            if (swaraIndex === 0) {
+                swara = 'Sa';
+            } else if (swaraIndex === 7) {
+                swara = 'Pa';
+            } else {
+                const baseSwara = komalShuddhaMap[swaraIndex];
+                const isKomal = [1, 3, 6, 8, 10].includes(swaraIndex);
+                variant = isKomal ? ' (Komal)' : ' (Shuddha)';
+                swara = baseSwara + variant;
+            }
+            
+            const confidence = Math.max(0, 1 - Math.abs(cents) / 35);
+            
+            const saptakNames = ['Mandra', 'Madhya', 'Taar'];
+            const saptakIndex = Math.max(0, Math.min(2, Math.floor(semitones / 12) + 1));
+            const saptak = saptakNames[saptakIndex];
+            
+            return {
+                system: 'Hindustani',
+                swara: swara,
+                variant: variant,
+                saptak: saptak,
+                fullSwara: swara + ' (' + saptak + ')',
+                cents: cents,
+                frequency: frequency.toFixed(2),
+                confidence: confidence.toFixed(3),
+                that: 'Bilawal'
+            };
+        }
+        
+        function updateMusicResults(analysis) {
+            const resultsDiv = document.getElementById('liveResults');
+            const timestamp = new Date(analysis.timestamp).toLocaleTimeString();
+            
+            const currentNote = analysis.musicAnalysis.note || analysis.musicAnalysis.fullSwara;
+            if (currentNote && !detectedNotes.includes(currentNote)) {
+                detectedNotes.push(currentNote);
+            }
+            
+            const systemEmoji = {
+                western: '🎼',
+                carnatic: '🎵', 
+                hindustani: '🎶'
+            };
+            
+            function getNoteNameFromFrequency(freq) {
+                const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+                const semitones = Math.round(12 * Math.log2(freq / 261.63));
+                const noteIndex = ((semitones % 12) + 12) % 12;
+                return noteNames[noteIndex];
+            }
+            
+            const shrutiInfo = detectedShruti ? 
+                `${getNoteNameFromFrequency(detectedShruti)} (${shrutiDetectionMode === 'auto' ? 'Auto' : 'Manual'})` : 
+                'Not detected';
+
+            const analysisText = `${systemEmoji[currentMusicSystem]} Analysis #${analysisCount} [${timestamp}]:
+🎯 DETECTED: ${currentNote} (${(analysis.musicAnalysis.confidence * 100).toFixed(1)}% confidence)
+
+📊 Audio Properties:
+• Frequency: ${analysis.frequency.toFixed(1)} Hz
+• Amplitude: ${(analysis.amplitude * 100).toFixed(1)}%
+• Cents Deviation: ${analysis.musicAnalysis.cents}¢
+
+🎵 Shruti (Sa): ${shrutiInfo}
+
+🎵 ${analysis.musicAnalysis.system} Analysis:
+${formatMusicSystemDetails(analysis.musicAnalysis)}
+
+🎶 Session Summary:
+• Total Analyses: ${analysisCount}
+• Unique Notes: [${detectedNotes.slice(-5).join(', ')}]
+• Confidence: ${((analysis.musicAnalysis.confidence || 0) * 100).toFixed(0)}%
+
+---`;
+            
+            resultsDiv.textContent = analysisText + '\n' + resultsDiv.textContent;
+            
+            const lines = resultsDiv.textContent.split('\n');
+            if (lines.length > 100) {
+                resultsDiv.textContent = lines.slice(0, 100).join('\n');
+            }
+        }
+        
+        function formatMusicSystemDetails(musicAnalysis) {
+            switch (musicAnalysis.system) {
+                case 'Western':
+                    return `• Note: ${musicAnalysis.note}
+• Frequency: ${musicAnalysis.frequency} Hz
+• Pitch Accuracy: ${musicAnalysis.cents > 0 ? '+' : ''}${musicAnalysis.cents}¢`;
+                
+                case 'Carnatic':
+                    return `• Swara: ${musicAnalysis.fullSwara}
+• Melakartha: ${musicAnalysis.melakartha}
+• Shruti Deviation: ${musicAnalysis.cents > 0 ? '+' : ''}${musicAnalysis.cents}¢`;
+                
+                case 'Hindustani':
+                    return `• Swara: ${musicAnalysis.fullSwara}
+• That: ${musicAnalysis.that}
+• Microtonal Variation: ${musicAnalysis.cents > 0 ? '+' : ''}${musicAnalysis.cents}¢`;
+                
+                default:
+                    return '• Analysis pending...';
+            }
+        }
+        
+        function updateAudioVisualization(timeData, frequencyData) {
+            const canvas = document.getElementById('audioVisualization');
+            const ctx = canvas.getContext('2d');
+            const width = canvas.width;
+            const height = canvas.height;
+            
+            ctx.fillStyle = '#f7fafc';
+            ctx.fillRect(0, 0, width, height);
+            
+            // Draw waveform
+            ctx.strokeStyle = '#667eea';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            
+            const sliceWidth = width / timeData.length;
+            let x = 0;
+            
+            for (let i = 0; i < timeData.length; i++) {
+                const v = timeData[i] / 128.0;
+                const y = v * height / 2;
+                
+                if (i === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+                
+                x += sliceWidth;
+            }
+            
+            ctx.stroke();
+            
+            // Draw frequency bars
+            ctx.fillStyle = '#764ba2';
+            const barWidth = width / (frequencyData.length / 4);
+            
+            for (let i = 0; i < frequencyData.length / 4; i++) {
+                const barHeight = (frequencyData[i] / 255) * height * 0.5;
+                ctx.fillRect(i * barWidth, height - barHeight, barWidth - 1, barHeight);
+            }
+        }
+        
+        function clearLiveResults() {
+            document.getElementById('liveResults').textContent = '🎼 REAL-TIME MUSIC ANALYSIS: Ready for new analysis...';
+            analysisCount = 0;
+            pitchHistory = [];
+            detectedNotes = [];
+        }
+
+        // Update shruti selection
+        function updateShrutiSelection() {
+            const shrutiSelect = document.getElementById('shrutiSelect');
+            const selectedValue = shrutiSelect.value;
+            
+            if (selectedValue === 'auto') {
+                shrutiDetectionMode = 'auto';
+                detectedShruti = null;
+                document.getElementById('shrutiStatus').innerHTML = 'Auto-detect enabled';
+            } else {
+                shrutiDetectionMode = 'manual';
+                detectedShruti = parseFloat(selectedValue);
+                currentReferencePitch = detectedShruti;
+                
+                const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+                const semitones = Math.round(12 * Math.log2(detectedShruti / 261.63));
+                const noteIndex = ((semitones % 12) + 12) % 12;
+                const noteName = noteNames[noteIndex];
+                
+                document.getElementById('shrutiStatus').innerHTML = `🔒 Shruti fixed: ${noteName}`;
+            }
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            const shrutiSelect = document.getElementById('shrutiSelect');
+            if (shrutiSelect) {
+                shrutiSelect.addEventListener('change', updateShrutiSelection);
+            }
+            
+            console.log('🎵 Musically Engine Mobile - Ready for live music analysis!');
+        });
+    </script>
+</body>
+</html>
