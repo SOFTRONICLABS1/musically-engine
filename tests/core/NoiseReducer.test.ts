@@ -325,6 +325,7 @@ function calculateNoiseLevel(noisySignal: Float32Array, cleanSignal: Float32Arra
     return Math.sqrt(sumSquaredError / noisySignal.length);
 }
 
+// Enhanced analysis functions
 function calculateCorrelation(a: Float32Array, b: Float32Array): number {
     let sumA = 0, sumB = 0, sumAB = 0, sumA2 = 0, sumB2 = 0;
     
@@ -341,4 +342,125 @@ function calculateCorrelation(a: Float32Array, b: Float32Array): number {
     const denominator = Math.sqrt((n * sumA2 - sumA * sumA) * (n * sumB2 - sumB * sumB));
     
     return denominator === 0 ? 0 : numerator / denominator;
+}
+
+function calculateSNR(signal: Float32Array, reference: Float32Array): number {
+    let signalPower = 0;
+    let noisePower = 0;
+    
+    for (let i = 0; i < signal.length; i++) {
+        signalPower += reference[i] * reference[i];
+        const noise = signal[i] - reference[i];
+        noisePower += noise * noise;
+    }
+    
+    if (noisePower === 0) return 100; // Very high SNR
+    return 10 * Math.log10(signalPower / noisePower);
+}
+
+function calculateRMSPower(signal: Float32Array): number {
+    let sumSquared = 0;
+    for (let i = 0; i < signal.length; i++) {
+        sumSquared += signal[i] * signal[i];
+    }
+    return Math.sqrt(sumSquared / signal.length);
+}
+
+function calculateSpectralFlux(signal: Float32Array): number {
+    // Simple spectral flux calculation
+    let flux = 0;
+    const windowSize = 256;
+    
+    for (let i = windowSize; i < signal.length - windowSize; i += windowSize) {
+        let currentEnergy = 0;
+        let previousEnergy = 0;
+        
+        for (let j = 0; j < windowSize; j++) {
+            currentEnergy += signal[i + j] * signal[i + j];
+            previousEnergy += signal[i - windowSize + j] * signal[i - windowSize + j];
+        }
+        
+        const diff = currentEnergy - previousEnergy;
+        if (diff > 0) flux += diff;
+    }
+    
+    return flux / (signal.length / windowSize);
+}
+
+function calculatePerceptualQuality(reference: Float32Array, processed: Float32Array): number {
+    // Simplified perceptual quality metric
+    const correlation = calculateCorrelation(reference, processed);
+    const snr = calculateSNR(processed, reference);
+    const spectralPreservation = calculateSpectralPreservation(reference, processed);
+    
+    // Weighted combination
+    return 0.4 * Math.max(0, Math.min(1, correlation)) + 
+           0.3 * Math.max(0, Math.min(1, (snr + 20) / 40)) + 
+           0.3 * spectralPreservation;
+}
+
+function calculateSpectralPreservation(reference: Float32Array, processed: Float32Array): number {
+    // Calculate how well spectral characteristics are preserved
+    const refSpectrum = calculateSimpleSpectrum(reference);
+    const procSpectrum = calculateSimpleSpectrum(processed);
+    
+    let similarity = 0;
+    for (let i = 0; i < Math.min(refSpectrum.length, procSpectrum.length); i++) {
+        const refMag = Math.sqrt(refSpectrum[i]);
+        const procMag = Math.sqrt(procSpectrum[i]);
+        const diff = Math.abs(refMag - procMag) / (refMag + procMag + 1e-10);
+        similarity += 1 - Math.min(1, diff);
+    }
+    
+    return similarity / Math.min(refSpectrum.length, procSpectrum.length);
+}
+
+function calculateHarmonicPreservation(reference: Float32Array, processed: Float32Array): number {
+    // Analyze how well harmonic structure is preserved
+    const refHarmonics = extractHarmonics(reference);
+    const procHarmonics = extractHarmonics(processed);
+    
+    let preservation = 0;
+    const numHarmonics = Math.min(refHarmonics.length, procHarmonics.length);
+    
+    for (let i = 0; i < numHarmonics; i++) {
+        const ratio = Math.min(refHarmonics[i], procHarmonics[i]) / 
+                     (Math.max(refHarmonics[i], procHarmonics[i]) + 1e-10);
+        preservation += ratio;
+    }
+    
+    return numHarmonics > 0 ? preservation / numHarmonics : 0;
+}
+
+function calculateSimpleSpectrum(signal: Float32Array): Float32Array {
+    // Simple DFT for spectrum analysis
+    const N = Math.min(512, signal.length);
+    const spectrum = new Float32Array(N / 2);
+    
+    for (let k = 0; k < N / 2; k++) {
+        let real = 0, imag = 0;
+        for (let n = 0; n < N; n++) {
+            const angle = -2 * Math.PI * k * n / N;
+            real += signal[n] * Math.cos(angle);
+            imag += signal[n] * Math.sin(angle);
+        }
+        spectrum[k] = real * real + imag * imag;
+    }
+    
+    return spectrum;
+}
+
+function extractHarmonics(signal: Float32Array): Float32Array {
+    const spectrum = calculateSimpleSpectrum(signal);
+    const harmonics = [];
+    
+    // Find peaks in spectrum (simplified harmonic detection)
+    for (let i = 2; i < spectrum.length - 2; i++) {
+        if (spectrum[i] > spectrum[i-1] && spectrum[i] > spectrum[i+1] && 
+            spectrum[i] > spectrum[i-2] && spectrum[i] > spectrum[i+2]) {
+            harmonics.push(spectrum[i]);
+        }
+    }
+    
+    return new Float32Array(harmonics.slice(0, 8)); // First 8 harmonics
 }
