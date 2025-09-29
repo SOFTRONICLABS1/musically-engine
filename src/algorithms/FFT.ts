@@ -153,9 +153,9 @@ export class FFT {
     }
     
     /**
-     * Find peak frequency in magnitude spectrum
+     * Find peak frequency in magnitude spectrum with parabolic interpolation
      * @param magnitude Magnitude spectrum
-     * @returns Peak frequency in Hz
+     * @returns Peak frequency in Hz with sub-bin accuracy
      */
     public findPeakFrequency(magnitude: Float32Array): number {
         let maxIndex = 0;
@@ -168,7 +168,87 @@ export class FFT {
             }
         }
         
-        return maxIndex * this.sampleRate / this.size;
+        // Apply parabolic interpolation for sub-bin accuracy
+        const interpolatedIndex = this.parabolicInterpolation(magnitude, maxIndex);
+        
+        return interpolatedIndex * this.sampleRate / this.size;
+    }
+    
+    /**
+     * Parabolic interpolation for precise peak location
+     * Uses three points around the peak to fit a parabola
+     * @param spectrum Magnitude spectrum
+     * @param peakIndex Index of the peak bin
+     * @returns Interpolated peak position with sub-bin accuracy
+     */
+    private parabolicInterpolation(spectrum: Float32Array, peakIndex: number): number {
+        // Handle edge cases
+        if (peakIndex === 0 || peakIndex >= spectrum.length - 1) {
+            return peakIndex;
+        }
+        
+        // Get the three points around the peak
+        const y1 = spectrum[peakIndex - 1];
+        const y2 = spectrum[peakIndex];
+        const y3 = spectrum[peakIndex + 1];
+        
+        // Calculate the fractional bin offset using parabolic interpolation
+        // Formula: p = 0.5 * (y1 - y3) / (y1 - 2*y2 + y3)
+        const denominator = y1 - 2 * y2 + y3;
+        
+        // Avoid division by zero
+        if (Math.abs(denominator) < 1e-10) {
+            return peakIndex;
+        }
+        
+        const p = 0.5 * (y1 - y3) / denominator;
+        
+        // Return the interpolated peak position
+        // Constrain to [-0.5, 0.5] to avoid unrealistic corrections
+        const constrainedP = Math.max(-0.5, Math.min(0.5, p));
+        return peakIndex + constrainedP;
+    }
+    
+    /**
+     * Find multiple peaks in magnitude spectrum with interpolation
+     * @param magnitude Magnitude spectrum
+     * @param numPeaks Number of peaks to find
+     * @param minDistance Minimum bin distance between peaks
+     * @returns Array of peak frequencies in Hz
+     */
+    public findMultiplePeaks(magnitude: Float32Array, numPeaks: number = 5, minDistance: number = 4): number[] {
+        const peaks: { index: number; value: number; frequency: number }[] = [];
+        const threshold = Math.max(...Array.from(magnitude)) * 0.1; // 10% of max
+        
+        // Find all local maxima
+        for (let i = 1; i < magnitude.length - 1; i++) {
+            if (magnitude[i] > magnitude[i - 1] && 
+                magnitude[i] > magnitude[i + 1] && 
+                magnitude[i] > threshold) {
+                
+                // Check minimum distance from existing peaks
+                let tooClose = false;
+                for (const peak of peaks) {
+                    if (Math.abs(i - peak.index) < minDistance) {
+                        tooClose = true;
+                        break;
+                    }
+                }
+                
+                if (!tooClose) {
+                    const interpolatedIndex = this.parabolicInterpolation(magnitude, i);
+                    peaks.push({
+                        index: i,
+                        value: magnitude[i],
+                        frequency: interpolatedIndex * this.sampleRate / this.size
+                    });
+                }
+            }
+        }
+        
+        // Sort by magnitude and return top N peaks
+        peaks.sort((a, b) => b.value - a.value);
+        return peaks.slice(0, numPeaks).map(p => p.frequency);
     }
     
     /**
@@ -221,6 +301,94 @@ export class FFT {
      */
     public getSampleRate(): number {
         return this.sampleRate;
+    }
+    
+    /**
+     * Perform inverse FFT with O(N log N) complexity
+     * @param real Real component of frequency domain signal
+     * @param imag Imaginary component of frequency domain signal
+     * @returns Time-domain signal
+     */
+    public inverse(real: Float32Array, imag: Float32Array): Float32Array {
+        if (real.length !== this.size || imag.length !== this.size) {
+            throw new Error(`Input length must match FFT size ${this.size}`);
+        }
+        
+        // Create copies to avoid modifying input
+        const realCopy = new Float32Array(real);
+        const imagCopy = new Float32Array(imag);
+        
+        // Conjugate the complex numbers
+        for (let i = 0; i < this.size; i++) {
+            imagCopy[i] = -imagCopy[i];
+        }
+        
+        // Apply bit reversal
+        for (let i = 0; i < this.size; i++) {
+            const j = this.reverseTable[i];
+            if (i < j) {
+                // Swap real parts
+                const tempReal = realCopy[i];
+                realCopy[i] = realCopy[j];
+                realCopy[j] = tempReal;
+                
+                // Swap imaginary parts
+                const tempImag = imagCopy[i];
+                imagCopy[i] = imagCopy[j];
+                imagCopy[j] = tempImag;
+            }
+        }
+        
+        // Cooley-Tukey IFFT (same as FFT but with conjugated input)
+        let length = 2;
+        while (length <= this.size) {
+            const halfLength = length >> 1;
+            
+            for (let i = 0; i < this.size; i += length) {
+                for (let j = 0; j < halfLength; j++) {
+                    const evenIndex = i + j;
+                    const oddIndex = i + j + halfLength;
+                    
+                    const angle = -2 * Math.PI * j / length;
+                    const cos = Math.cos(angle);
+                    const sin = Math.sin(angle);
+                    
+                    const oddReal = realCopy[oddIndex];
+                    const oddImag = imagCopy[oddIndex];
+                    
+                    const tempReal = oddReal * cos - oddImag * sin;
+                    const tempImag = oddReal * sin + oddImag * cos;
+                    
+                    realCopy[oddIndex] = realCopy[evenIndex] - tempReal;
+                    imagCopy[oddIndex] = imagCopy[evenIndex] - tempImag;
+                    
+                    realCopy[evenIndex] = realCopy[evenIndex] + tempReal;
+                    imagCopy[evenIndex] = imagCopy[evenIndex] + tempImag;
+                }
+            }
+            length <<= 1;
+        }
+        
+        // Conjugate again and scale
+        const output = new Float32Array(this.size);
+        const scale = 1.0 / this.size;
+        
+        for (let i = 0; i < this.size; i++) {
+            // Take real part and scale
+            output[i] = realCopy[i] * scale;
+        }
+        
+        return output;
+    }
+    
+    /**
+     * Perform forward FFT followed by inverse FFT (for testing)
+     * @param input Real-valued input signal
+     * @returns Reconstructed signal (should match input)
+     */
+    public roundTrip(input: Float32Array): Float32Array {
+        const { real, imag } = this.forward(input);
+        return this.inverse(real, imag);
     }
 }
 

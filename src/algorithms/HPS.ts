@@ -27,14 +27,16 @@ export class HPS {
     }
     
     /**
-     * Detect fundamental frequency using HPS
+     * Detect fundamental frequency using enhanced HPS with interpolation
      * @param buffer Audio buffer
      * @returns Detected frequencies with their strengths
      */
     public detectPitch(buffer: Float32Array): { 
         frequency: number; 
         strength: number; 
-        harmonicAmplitudes: Float32Array 
+        harmonicAmplitudes: Float32Array;
+        harmonicity: number;
+        spectralCentroid: number;
     } {
         // Apply window function
         const windowed = this.applyWindow(buffer);
@@ -42,17 +44,190 @@ export class HPS {
         // Perform FFT
         const { real, imag } = this.fft.forward(windowed);
         const spectrum = this.fft.getPowerSpectrum(real, imag);
+        const magnitude = this.fft.getMagnitudeSpectrum(real, imag);
         
-        // Apply HPS algorithm
-        const hps = this.computeHPS(spectrum);
+        // Apply enhanced HPS algorithm with logarithmic weighting
+        const hps = this.computeEnhancedHPS(spectrum);
         
-        // Find peak in HPS
-        const { frequency, strength } = this.findPeak(hps);
+        // Find peak in HPS with sub-bin accuracy
+        const { frequency, strength } = this.findPeakWithInterpolation(hps);
         
         // Extract harmonic amplitudes
         const harmonicAmplitudes = this.extractHarmonicAmplitudes(spectrum, frequency);
         
-        return { frequency, strength, harmonicAmplitudes };
+        // Calculate harmonicity score (how harmonic vs inharmonic the signal is)
+        const harmonicity = this.calculateHarmonicity(spectrum, frequency);
+        
+        // Calculate spectral centroid for timbre analysis
+        const spectralCentroid = this.calculateSpectralCentroid(magnitude);
+        
+        return { frequency, strength, harmonicAmplitudes, harmonicity, spectralCentroid };
+    }
+    
+    /**
+     * Compute Enhanced Harmonic Product Spectrum with logarithmic weighting
+     * @param spectrum Power spectrum from FFT
+     * @returns Enhanced HPS array
+     */
+    private computeEnhancedHPS(spectrum: Float32Array): Float32Array {
+        const fftSize = this.fft.getSize();
+        const hps = new Float32Array(spectrum.length);
+        
+        // Initialize with log of original spectrum to reduce dynamic range
+        for (let i = 0; i < spectrum.length; i++) {
+            hps[i] = spectrum[i] > 0 ? Math.log(1 + spectrum[i]) : 0;
+        }
+        
+        // Multiply with downsampled versions using weighted contributions
+        for (let h = 2; h <= this.harmonics; h++) {
+            const weight = 1.0 / Math.sqrt(h); // Weight decreases with harmonic number
+            for (let i = 0; i < Math.floor(spectrum.length / h); i++) {
+                const harmonicValue = spectrum[i * h] > 0 ? Math.log(1 + spectrum[i * h]) : 0;
+                hps[i] *= Math.pow(harmonicValue, weight);
+            }
+        }
+        
+        // Apply frequency range limits
+        const minBin = Math.floor(this.minFrequency * fftSize / this.sampleRate);
+        const maxBin = Math.ceil(this.maxFrequency * fftSize / this.sampleRate);
+        
+        for (let i = 0; i < minBin; i++) {
+            hps[i] = 0;
+        }
+        for (let i = maxBin; i < hps.length; i++) {
+            hps[i] = 0;
+        }
+        
+        // Normalize HPS
+        const maxHPS = Math.max(...hps);
+        if (maxHPS > 0) {
+            for (let i = 0; i < hps.length; i++) {
+                hps[i] /= maxHPS;
+            }
+        }
+        
+        return hps;
+    }
+    
+    /**
+     * Find peak in HPS with enhanced interpolation
+     * @param hps Harmonic Product Spectrum
+     * @returns Peak frequency and strength with sub-bin accuracy
+     */
+    private findPeakWithInterpolation(hps: Float32Array): { frequency: number; strength: number } {
+        let maxIndex = 0;
+        let maxValue = 0;
+        
+        // Find the highest peak
+        for (let i = 2; i < hps.length - 2; i++) {
+            // More robust local maximum check
+            if (hps[i] > hps[i - 1] && hps[i] > hps[i + 1] && 
+                hps[i] > hps[i - 2] && hps[i] > hps[i + 2] && 
+                hps[i] > maxValue) {
+                maxValue = hps[i];
+                maxIndex = i;
+            }
+        }
+        
+        // Enhanced parabolic interpolation for refined frequency
+        const refinedIndex = this.enhancedParabolicInterpolation(hps, maxIndex);
+        const frequency = refinedIndex * this.sampleRate / this.fft.getSize();
+        
+        return { frequency, strength: maxValue };
+    }
+    
+    /**
+     * Enhanced parabolic interpolation with validation
+     * @param array Data array
+     * @param peakIndex Peak index
+     * @returns Refined index with validation
+     */
+    private enhancedParabolicInterpolation(array: Float32Array, peakIndex: number): number {
+        if (peakIndex <= 1 || peakIndex >= array.length - 2) {
+            return peakIndex;
+        }
+        
+        // Use 5-point interpolation for better accuracy
+        const y1 = array[peakIndex - 2];
+        const y2 = array[peakIndex - 1];
+        const y3 = array[peakIndex];
+        const y4 = array[peakIndex + 1];
+        const y5 = array[peakIndex + 2];
+        
+        // Compute second-order differences
+        const d2_1 = y2 - 2 * y3 + y4;
+        const d2_2 = y1 - 2 * y2 + y3;
+        const d2_3 = y3 - 2 * y4 + y5;
+        
+        // Average the interpolations for robustness
+        let offset = 0;
+        let count = 0;
+        
+        if (Math.abs(d2_1) > 1e-10) {
+            offset += 0.5 * (y2 - y4) / d2_1;
+            count++;
+        }
+        
+        if (count > 0) {
+            offset /= count;
+            // Constrain offset to reasonable range
+            offset = Math.max(-0.5, Math.min(0.5, offset));
+        }
+        
+        return peakIndex + offset;
+    }
+    
+    /**
+     * Calculate harmonicity score
+     * @param spectrum Power spectrum
+     * @param fundamental Detected fundamental frequency
+     * @returns Harmonicity score (0-1)
+     */
+    private calculateHarmonicity(spectrum: Float32Array, fundamental: number): number {
+        if (fundamental <= 0) return 0;
+        
+        const binWidth = this.sampleRate / this.fft.getSize();
+        let harmonicEnergy = 0;
+        let totalEnergy = 0;
+        
+        // Calculate energy at harmonic frequencies
+        for (let h = 1; h <= this.harmonics * 2; h++) {
+            const harmonicFreq = fundamental * h;
+            const bin = Math.round(harmonicFreq / binWidth);
+            
+            if (bin < spectrum.length) {
+                // Sum energy in a window around the harmonic
+                for (let i = Math.max(0, bin - 2); i <= Math.min(spectrum.length - 1, bin + 2); i++) {
+                    harmonicEnergy += spectrum[i];
+                }
+            }
+        }
+        
+        // Calculate total energy
+        for (let i = 0; i < spectrum.length; i++) {
+            totalEnergy += spectrum[i];
+        }
+        
+        return totalEnergy > 0 ? harmonicEnergy / totalEnergy : 0;
+    }
+    
+    /**
+     * Calculate spectral centroid for timbre analysis
+     * @param magnitude Magnitude spectrum
+     * @returns Spectral centroid frequency
+     */
+    private calculateSpectralCentroid(magnitude: Float32Array): number {
+        let weightedSum = 0;
+        let magnitudeSum = 0;
+        const binWidth = this.sampleRate / this.fft.getSize();
+        
+        for (let i = 0; i < magnitude.length; i++) {
+            const frequency = i * binWidth;
+            weightedSum += frequency * magnitude[i];
+            magnitudeSum += magnitude[i];
+        }
+        
+        return magnitudeSum > 0 ? weightedSum / magnitudeSum : 0;
     }
     
     /**

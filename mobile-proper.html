@@ -1000,8 +1000,18 @@
                     await initAudioContext();
                 }
                 
-                // Base Sa frequency (middle C)
-                const saFreq = 261.63; // C4 - Madhya Sthayi Sa
+                // Get user-selected Shruti (Sa frequency)
+                const shrutiSelect = document.getElementById('shrutiSelect');
+                let saFreq = 261.63; // Default to C4
+                
+                if (shrutiSelect.value !== 'auto') {
+                    saFreq = parseFloat(shrutiSelect.value);
+                }
+                
+                const display = document.getElementById('analysisDisplay');
+                const timestamp = new Date().toLocaleTimeString();
+                display.innerHTML += `[${timestamp}] Using selected Shruti: ${saFreq.toFixed(1)} Hz for Sa-Pa-Sa demo\n`;
+                display.scrollTop = display.scrollHeight;
                 const paFreq = saFreq * 1.5; // Perfect fifth: G4 (392.44 Hz)
                 const saHighFreq = saFreq * 2; // Tara Sthayi Sa (C5 - 523.26 Hz)
                 const paLowFreq = paFreq / 2; // Mandra Sthayi Pa (G3 - 196.22 Hz)
@@ -1021,7 +1031,7 @@
                 await delay(150);
                 await playTone(saFreq, 1.2, 'Sa'); // Final Sa (Madhya)
                 
-                displayDemoMessage('✅ Complete Sa-Pa-Sa octave pattern demo complete!\n\nNow you try:\n1. Tap "🎵 Detect Shruti"\n2. Sing the same pattern: Sa → Pa → Sa₊₁ → Pa → Sa → Pa₋₁ → Sa\n3. Include all three octaves (Mandra, Madhya, Tara)\n\nFrequencies used:\n• Sa (Madhya): ' + saFreq.toFixed(1) + ' Hz\n• Pa (Madhya): ' + paFreq.toFixed(1) + ' Hz  \n• Sa₊₁ (Tara): ' + saHighFreq.toFixed(1) + ' Hz\n• Pa₋₁ (Mandra): ' + paLowFreq.toFixed(1) + ' Hz\n• Perfect fifth ratio: ' + (paFreq/saFreq).toFixed(3));
+                displayDemoMessage('✅ Complete Sa-Pa-Sa octave pattern demo complete!\n\nNow you try:\n1. Tap "🎵 Detect Shruti"\n2. Sing the same pattern: Sa → Pa → Sa₊₁ → Pa → Sa → Pa₋₁ → Sa\n3. Include all three octaves (Mandra, Madhya, Tara)\n\nFrequencies used (based on your selected Shruti):\n• Sa (Madhya): ' + saFreq.toFixed(1) + ' Hz\n• Pa (Madhya): ' + paFreq.toFixed(1) + ' Hz  \n• Sa₊₁ (Tara): ' + saHighFreq.toFixed(1) + ' Hz\n• Pa₋₁ (Mandra): ' + paLowFreq.toFixed(1) + ' Hz\n• Perfect fifth ratio: ' + (paFreq/saFreq).toFixed(3));
                 
             } catch (error) {
                 displayDemoMessage('❌ Demo playback failed: ' + error.message);

@@ -122,6 +122,103 @@
             50% { transform: scale(1.05); }
             100% { transform: scale(1); }
         }
+
+        .validation-section {
+            background: #f0fff4;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 12px;
+            border: 2px solid #48bb78;
+        }
+
+        .validation-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .playback-buttons, .analysis-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .playback-buttons button {
+            background: linear-gradient(135deg, #4299e1, #3182ce);
+        }
+
+        .analysis-buttons button {
+            background: linear-gradient(135deg, #ed8936, #dd6b20);
+        }
+
+        .confidence-results {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .overall-score {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .score-bar {
+            background: #e2e8f0;
+            height: 20px;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+
+        .score-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #fc8181, #f6ad55, #68d391, #4fd1c7);
+            transition: width 0.5s ease;
+        }
+
+        .detailed-breakdown {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 10px;
+            margin: 20px 0;
+        }
+
+        .metric {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            background: #f7fafc;
+            border-radius: 6px;
+        }
+
+        .metric .score {
+            font-weight: bold;
+            color: #2d3748;
+        }
+
+        .metric .details {
+            font-size: 12px;
+            color: #718096;
+        }
+
+        .recommendations {
+            background: #ebf8ff;
+            padding: 15px;
+            border-radius: 6px;
+            border-left: 4px solid #4299e1;
+        }
+
+        .recommendations ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+
+        .recommendations li {
+            margin: 5px 0;
+        }
         
         #liveAnalysis {
             background: #f7fafc;
@@ -257,6 +354,7 @@
                 <button onclick="startMicrophoneAnalysis()" id="startMicBtn">🎤 Start Microphone</button>
                 <button onclick="stopMicrophoneAnalysis()" id="stopMicBtn" disabled>⏹️ Stop</button>
                 <button onclick="verifyWhatYouSang()" id="verifyBtn" class="verify-btn" disabled style="display: none;">🔍 Verify What You Sang</button>
+                <button onclick="testEngine()" id="testEngineBtn" style="background: orange;">🔧 Test Engine</button>
                 <button onclick="clearAnalysis()">🗑️ Clear</button>
             </div>
             
@@ -272,6 +370,38 @@
                 line-height: 1.4;
                 white-space: pre-wrap;
             "></div>
+        </div>
+        
+        <!-- Validation Interface -->
+        <div class="validation-section" id="validationSection" style="display: none;">
+            <h3>🔬 Engine Validation & Analysis</h3>
+            
+            <div class="validation-controls">
+                <div class="playback-buttons">
+                    <button onclick="playOriginalRecording()" id="playOriginalBtn" disabled>
+                        🎤 Play Your Voice
+                    </button>
+                    <button onclick="playEngineDetection()" id="playEngineBtn" disabled>
+                        🔍 Play Engine Output
+                    </button>
+                    <button onclick="playBothTogether()" id="playBothBtn" disabled>
+                        ⚖️ Compare Both
+                    </button>
+                </div>
+                
+                <div class="analysis-buttons">
+                    <button onclick="runConfidenceAnalysis()" id="analyzeBtn" disabled>
+                        🎖️ Analyze Confidence
+                    </button>
+                    <button onclick="downloadRecording()" id="downloadBtn" disabled>
+                        💾 Download Recording
+                    </button>
+                </div>
+            </div>
+            
+            <div class="confidence-results" id="confidenceResults" style="display: none;">
+                <!-- Confidence analysis results will be inserted here -->
+            </div>
         </div>
         
         <!-- Test Audio Generation -->
@@ -313,6 +443,12 @@
         // Store detected notes for verification playback
         let detectedNotes = [];
         let sessionStartTime = null;
+        
+        // Audio recording system for validation
+        let mediaRecorder = null;
+        let recordedChunks = [];
+        let recordedAudioBlob = null;
+        let recordedAudioUrl = null;
         
         // Adaptive noise floor learning
         let noiseFloor = 0;
@@ -404,6 +540,14 @@
                 // Initialize session
                 detectedNotes = [];
                 sessionStartTime = Date.now();
+                recordedChunks = [];
+                recordedAudioBlob = null;
+                
+                // Clean up previous recording URL
+                if (recordedAudioUrl) {
+                    URL.revokeObjectURL(recordedAudioUrl);
+                    recordedAudioUrl = null;
+                }
                 
                 initAudio();
                 
@@ -426,6 +570,9 @@
                 analyzerNode.fftSize = 2048;
                 
                 microphoneSource.connect(analyzerNode);
+                
+                // Setup audio recording for validation
+                setupAudioRecording(microphoneStream);
                 
                 isAnalyzing = true;
                 document.getElementById('startMicBtn').disabled = true;
@@ -478,11 +625,34 @@
             const peakThreshold = Math.max(0.1, noiseFloor * 8);         // At least 8x noise floor
             const dynamicRange = peak / (rms + 0.001); // Avoid division by zero
             
+            // 🔧 DEBUGGING: More detailed noise gate logging
+            if (noiseCalibrationComplete) {
+                console.log(`🔧 Noise Gate Check:`, {
+                    rms: rms.toFixed(4),
+                    peak: peak.toFixed(4),
+                    noiseFloor: noiseFloor.toFixed(4),
+                    adaptiveRmsThreshold: adaptiveRmsThreshold.toFixed(4),
+                    peakThreshold: peakThreshold.toFixed(4),
+                    dynamicRange: dynamicRange.toFixed(2),
+                    passesGate: rms >= adaptiveRmsThreshold && peak >= peakThreshold && dynamicRange >= 3.0
+                });
+            }
+            
+            // 🔧 TEMPORARY: Bypass noise gate for debugging
+            const bypassNoiseGate = true; // Set to false to re-enable noise gate
+            
             // Only process if signal is significantly above noise floor AND has good dynamic range
-            if (rms < adaptiveRmsThreshold || peak < peakThreshold || dynamicRange < 3.0) {
+            if (!bypassNoiseGate && (rms < adaptiveRmsThreshold || peak < peakThreshold || dynamicRange < 3.0)) {
                 // Signal too quiet or lacks dynamic range - likely noise
+                if (noiseCalibrationComplete) {
+                    console.log('🚫 Signal rejected by noise gate');
+                }
                 animationFrame = requestAnimationFrame(analyzeMicrophone);
                 return;
+            }
+            
+            if (bypassNoiseGate && noiseCalibrationComplete) {
+                console.log('🔧 BYPASSING noise gate for debugging');
             }
             
             console.log(`Audio levels - RMS: ${rms.toFixed(4)}, Peak: ${peak.toFixed(4)}, Ratio: ${dynamicRange.toFixed(2)}`); // Debug log
@@ -490,8 +660,15 @@
             // Process with the engine
             if (audioProcessor && musicSystem) {
                 try {
+                    console.log('🔧 Processing audio with engine...', {
+                        bufferLength: dataArray.length,
+                        bufferSample: dataArray.slice(0, 10),
+                        hasAudioProcessor: !!audioProcessor,
+                        hasMusicSystem: !!musicSystem
+                    });
+                    
                     const result = await audioProcessor.processAudio(dataArray);
-                    console.log('Analysis result:', result); // Debug log
+                    console.log('🔧 Engine Analysis result:', result); // Debug log
                     
                     if (result && result.fundamentalFrequency > 50) {
                         const musicAnalysis = musicSystem.analyzeFrequency(result.fundamentalFrequency);
@@ -524,8 +701,14 @@
                 }
             } else {
                 // Debug: Check if components are missing
-                if (!audioProcessor) console.log('No audioProcessor');
-                if (!musicSystem) console.log('No musicSystem');
+                if (!audioProcessor) {
+                    console.log('❌ No audioProcessor');
+                    updateAnalysisDisplay(`[${new Date().toLocaleTimeString()}] ❌ AudioProcessor not initialized`);
+                }
+                if (!musicSystem) {
+                    console.log('❌ No musicSystem');
+                    updateAnalysisDisplay(`[${new Date().toLocaleTimeString()}] ❌ MusicSystem not initialized`);
+                }
             }
             
             animationFrame = requestAnimationFrame(analyzeMicrophone);
@@ -687,12 +870,62 @@
             display.scrollTop = display.scrollHeight;
         }
         
+        // Setup audio recording for validation
+        function setupAudioRecording(stream) {
+            try {
+                // Create MediaRecorder with high quality settings
+                const options = {
+                    mimeType: 'audio/webm;codecs=opus',
+                    audioBitsPerSecond: 128000
+                };
+                
+                // Fallback for browsers that don't support webm
+                if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+                    options.mimeType = 'audio/mp4';
+                }
+                
+                mediaRecorder = new MediaRecorder(stream, options);
+                
+                mediaRecorder.ondataavailable = (event) => {
+                    if (event.data.size > 0) {
+                        recordedChunks.push(event.data);
+                    }
+                };
+                
+                mediaRecorder.onstop = () => {
+                    // Create audio blob from recorded chunks
+                    recordedAudioBlob = new Blob(recordedChunks, { 
+                        type: mediaRecorder.mimeType || 'audio/webm' 
+                    });
+                    recordedAudioUrl = URL.createObjectURL(recordedAudioBlob);
+                    
+                    updateAnalysisDisplay(`[${new Date().toLocaleTimeString()}] 🎙️ Audio recording saved (${(recordedAudioBlob.size / 1024).toFixed(1)} KB)`);
+                    
+                    // Show validation UI
+                    showValidationInterface();
+                };
+                
+                // Start recording
+                mediaRecorder.start(100); // Collect data every 100ms
+                updateAnalysisDisplay(`[${new Date().toLocaleTimeString()}] 🎙️ Recording audio for validation...`);
+                
+            } catch (error) {
+                console.error('Audio recording setup failed:', error);
+                updateAnalysisDisplay(`[${new Date().toLocaleTimeString()}] ⚠️ Audio recording unavailable: ${error.message}`);
+            }
+        }
+        
         // Stop microphone analysis
         function stopMicrophoneAnalysis() {
             isAnalyzing = false;
             
             if (animationFrame) {
                 cancelAnimationFrame(animationFrame);
+            }
+            
+            // Stop audio recording
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                mediaRecorder.stop();
             }
             
             if (microphoneSource) {
@@ -714,7 +947,7 @@
                 
                 // Add success message
                 const timestamp = new Date().toLocaleTimeString();
-                updateAnalysisDisplay(`[${timestamp}] Analysis stopped. ${detectedNotes.length} notes captured. Click "Verify What You Sang" to hear them back!`);
+                updateAnalysisDisplay(`[${timestamp}] Analysis stopped. ${detectedNotes.length} notes captured. Recording analysis will be available shortly...`);
             }
         }
         
@@ -724,6 +957,32 @@
             detectedNotes = [];
             document.getElementById('verifyBtn').style.display = 'none';
             document.getElementById('verifyBtn').disabled = true;
+            
+            // Hide validation interface
+            document.getElementById('validationSection').style.display = 'none';
+            
+            // Clean up recorded audio
+            if (recordedAudioUrl) {
+                URL.revokeObjectURL(recordedAudioUrl);
+                recordedAudioUrl = null;
+            }
+            recordedAudioBlob = null;
+            recordedChunks = [];
+        }
+        
+        // Show validation interface after recording
+        function showValidationInterface() {
+            const validationSection = document.getElementById('validationSection');
+            validationSection.style.display = 'block';
+            
+            // Enable playback buttons
+            document.getElementById('playOriginalBtn').disabled = false;
+            document.getElementById('playEngineBtn').disabled = false;
+            document.getElementById('playBothBtn').disabled = false;
+            document.getElementById('analyzeBtn').disabled = false;
+            document.getElementById('downloadBtn').disabled = false;
+            
+            updateAnalysisDisplay(`[${new Date().toLocaleTimeString()}] 🔬 Validation interface ready! You can now compare your voice with engine detection.`);
         }
         
         // Verify what you sang - play back detected notes
@@ -987,8 +1246,15 @@
                     await initAudio();
                 }
                 
-                // Base Sa frequency (middle C)
-                const saFreq = 261.63; // C4 - Madhya Sthayi Sa
+                // Get user-selected Shruti (Sa frequency)
+                const shrutiSelect = document.getElementById('shrutiSelect');
+                let saFreq = 261.63; // Default to C4
+                
+                if (shrutiSelect.value !== 'auto') {
+                    saFreq = parseFloat(shrutiSelect.value);
+                }
+                
+                updateAnalysisDisplay(`Using selected Shruti: ${saFreq.toFixed(1)} Hz for Sa-Pa-Sa demo`);
                 const paFreq = saFreq * 1.5; // Perfect fifth: G4 (392.44 Hz)
                 const saHighFreq = saFreq * 2; // Tara Sthayi Sa (C5 - 523.26 Hz)
                 const paLowFreq = paFreq / 2; // Mandra Sthayi Pa (G3 - 196.22 Hz)
@@ -1008,7 +1274,7 @@
                 await delay(150);
                 await playTone(saFreq, 1.2, 'Sa'); // Final Sa (Madhya)
                 
-                updateAnalysisDisplay(`<div class="success">✅ Complete Sa-Pa-Sa octave pattern demo complete!<br><br>Now you try:<br>1. Tap "🎵 Detect Shruti"<br>2. Sing the same pattern: Sa → Pa → Sa₊₁ → Pa → Sa → Pa₋₁ → Sa<br>3. Include all three octaves (Mandra, Madhya, Tara)<br><br>Frequencies used:<br>• Sa (Madhya): ${saFreq.toFixed(1)} Hz<br>• Pa (Madhya): ${paFreq.toFixed(1)} Hz<br>• Sa₊₁ (Tara): ${saHighFreq.toFixed(1)} Hz<br>• Pa₋₁ (Mandra): ${paLowFreq.toFixed(1)} Hz<br>• Perfect fifth ratio: ${(paFreq/saFreq).toFixed(3)}</div>`);
+                updateAnalysisDisplay(`<div class="success">✅ Complete Sa-Pa-Sa octave pattern demo complete!<br><br>Now you try:<br>1. Tap "🎵 Detect Shruti"<br>2. Sing the same pattern: Sa → Pa → Sa₊₁ → Pa → Sa → Pa₋₁ → Sa<br>3. Include all three octaves (Mandra, Madhya, Tara)<br><br>Frequencies used (based on your selected Shruti):<br>• Sa (Madhya): ${saFreq.toFixed(1)} Hz<br>• Pa (Madhya): ${paFreq.toFixed(1)} Hz<br>• Sa₊₁ (Tara): ${saHighFreq.toFixed(1)} Hz<br>• Pa₋₁ (Mandra): ${paLowFreq.toFixed(1)} Hz<br>• Perfect fifth ratio: ${(paFreq/saFreq).toFixed(3)}</div>`);
                 
             } catch (error) {
                 updateAnalysisDisplay(`<div class="error">❌ Demo playback failed: ${error.message}</div>`);
@@ -1060,6 +1326,512 @@
         // Simple delay utility
         function delay(ms) {
             return new Promise(resolve => setTimeout(resolve, ms));
+        }
+        
+        // Play original recorded audio
+        function playOriginalRecording() {
+            if (!recordedAudioUrl) {
+                updateAnalysisDisplay(`[${new Date().toLocaleTimeString()}] ❌ No recording available`);
+                return;
+            }
+            
+            const audio = new Audio(recordedAudioUrl);
+            audio.play().then(() => {
+                updateAnalysisDisplay(`[${new Date().toLocaleTimeString()}] 🎤 Playing your original voice...`);
+            }).catch(error => {
+                updateAnalysisDisplay(`[${new Date().toLocaleTimeString()}] ❌ Playback failed: ${error.message}`);
+            });
+        }
+        
+        // Play engine detection (reuse existing verifyWhatYouSang)
+        function playEngineDetection() {
+            updateAnalysisDisplay(`[${new Date().toLocaleTimeString()}] 🔍 Playing engine detection...`);
+            verifyWhatYouSang();
+        }
+        
+        // Play both together for comparison
+        async function playBothTogether() {
+            if (!recordedAudioUrl || detectedNotes.length === 0) {
+                updateAnalysisDisplay(`[${new Date().toLocaleTimeString()}] ❌ Need both recording and detected notes`);
+                return;
+            }
+            
+            updateAnalysisDisplay(`[${new Date().toLocaleTimeString()}] ⚖️ Playing both recordings together for comparison...`);
+            
+            // Start original recording
+            const audio = new Audio(recordedAudioUrl);
+            audio.volume = 0.7; // Reduce volume slightly
+            
+            // Start engine playback simultaneously
+            const playBoth = async () => {
+                // Start original audio
+                audio.play();
+                
+                // Start engine synthesis with small delay for synchronization
+                setTimeout(() => {
+                    verifyWhatYouSang();
+                }, 100);
+            };
+            
+            await playBoth();
+        }
+        
+        // Download recorded audio
+        function downloadRecording() {
+            if (!recordedAudioBlob) {
+                updateAnalysisDisplay(`[${new Date().toLocaleTimeString()}] ❌ No recording to download`);
+                return;
+            }
+            
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+            const filename = `voice-recording-${timestamp}.webm`;
+            
+            const a = document.createElement('a');
+            a.href = recordedAudioUrl;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            
+            updateAnalysisDisplay(`[${new Date().toLocaleTimeString()}] 💾 Downloaded: ${filename}`);
+        }
+        
+        // Run confidence analysis
+        async function runConfidenceAnalysis() {
+            if (!recordedAudioBlob || detectedNotes.length === 0) {
+                updateAnalysisDisplay(`[${new Date().toLocaleTimeString()}] ❌ Need both recording and detected notes for analysis`);
+                return;
+            }
+            
+            try {
+                updateAnalysisDisplay(`[${new Date().toLocaleTimeString()}] 🔬 Analyzing confidence... This may take a moment.`);
+                
+                const analysisBtn = document.getElementById('analyzeBtn');
+                analysisBtn.disabled = true;
+                analysisBtn.textContent = '🔬 Analyzing...';
+                
+                // Extract fundamental frequency from original recording
+                const originalF0Data = await extractF0FromRecording(recordedAudioBlob);
+                
+                // Calculate confidence metrics
+                const confidenceScore = calculateConfidenceScore(originalF0Data, detectedNotes);
+                
+                // Display results
+                displayConfidenceResults(confidenceScore);
+                
+                updateAnalysisDisplay(`[${new Date().toLocaleTimeString()}] ✅ Confidence analysis complete: ${confidenceScore.overall.toFixed(1)}%`);
+                
+            } catch (error) {
+                console.error('Confidence analysis error:', error);
+                updateAnalysisDisplay(`[${new Date().toLocaleTimeString()}] ❌ Analysis failed: ${error.message}`);
+            } finally {
+                const analysisBtn = document.getElementById('analyzeBtn');
+                analysisBtn.disabled = false;
+                analysisBtn.textContent = '🎖️ Analyze Confidence';
+            }
+        }
+        
+        // Extract fundamental frequency from recorded audio
+        async function extractF0FromRecording(audioBlob) {
+            return new Promise((resolve, reject) => {
+                const audio = new Audio(URL.createObjectURL(audioBlob));
+                audio.addEventListener('loadeddata', async () => {
+                    try {
+                        // Create audio context for analysis
+                        const analysisContext = new (window.AudioContext || window.webkitAudioContext)();
+                        
+                        // Convert blob to audio buffer
+                        const arrayBuffer = await audioBlob.arrayBuffer();
+                        const audioBuffer = await analysisContext.decodeAudioData(arrayBuffer);
+                        
+                        // Extract F0 using autocorrelation method
+                        const f0Data = extractF0UsingAutocorrelation(audioBuffer, analysisContext.sampleRate);
+                        
+                        resolve(f0Data);
+                    } catch (error) {
+                        reject(error);
+                    }
+                });
+                audio.load();
+            });
+        }
+        
+        // Extract F0 using autocorrelation method
+        function extractF0UsingAutocorrelation(audioBuffer, sampleRate) {
+            const channelData = audioBuffer.getChannelData(0);
+            const frameSize = 2048;
+            const hopSize = 512;
+            const f0Data = [];
+            
+            for (let i = 0; i < channelData.length - frameSize; i += hopSize) {
+                const frame = channelData.slice(i, i + frameSize);
+                const f0 = estimateF0Autocorrelation(frame, sampleRate);
+                
+                if (f0 > 50 && f0 < 2000) { // Valid frequency range
+                    f0Data.push({
+                        time: i / sampleRate,
+                        frequency: f0,
+                        amplitude: calculateRMS(frame)
+                    });
+                }
+            }
+            
+            return f0Data;
+        }
+        
+        // Estimate F0 using autocorrelation
+        function estimateF0Autocorrelation(signal, sampleRate) {
+            const minPeriod = Math.floor(sampleRate / 800); // Max 800 Hz
+            const maxPeriod = Math.floor(sampleRate / 80);  // Min 80 Hz
+            
+            let maxCorrelation = 0;
+            let bestPeriod = 0;
+            
+            // Autocorrelation
+            for (let period = minPeriod; period < maxPeriod && period < signal.length / 2; period++) {
+                let correlation = 0;
+                let count = 0;
+                
+                for (let i = 0; i < signal.length - period; i++) {
+                    correlation += signal[i] * signal[i + period];
+                    count++;
+                }
+                
+                correlation /= count;
+                
+                if (correlation > maxCorrelation) {
+                    maxCorrelation = correlation;
+                    bestPeriod = period;
+                }
+            }
+            
+            return bestPeriod > 0 ? sampleRate / bestPeriod : 0;
+        }
+        
+        // Calculate RMS amplitude
+        function calculateRMS(signal) {
+            let sum = 0;
+            for (let i = 0; i < signal.length; i++) {
+                sum += signal[i] * signal[i];
+            }
+            return Math.sqrt(sum / signal.length);
+        }
+        
+        // Calculate comprehensive confidence score
+        function calculateConfidenceScore(originalF0Data, detectedNotes) {
+            // Convert detected notes to time-frequency pairs
+            const engineData = detectedNotes.map(note => ({
+                time: note.relativeTime / 1000, // Convert to seconds
+                frequency: note.frequency,
+                amplitude: 1.0 // Detected notes don't have amplitude info
+            }));
+            
+            // Calculate individual metrics
+            const pitchAccuracy = calculatePitchAccuracy(originalF0Data, engineData);
+            const timingAccuracy = calculateTimingAccuracy(originalF0Data, engineData);
+            const completenessScore = calculateCompleteness(originalF0Data, engineData);
+            const amplitudeCorrelation = calculateAmplitudeCorrelation(originalF0Data, engineData);
+            
+            // Calculate overall score with weights
+            const overall = (
+                pitchAccuracy.score * 0.40 +
+                timingAccuracy.score * 0.25 +
+                completenessScore.score * 0.20 +
+                amplitudeCorrelation.score * 0.15
+            );
+            
+            return {
+                overall,
+                pitchAccuracy,
+                timingAccuracy,
+                completenessScore,
+                amplitudeCorrelation,
+                originalDataPoints: originalF0Data.length,
+                engineDataPoints: engineData.length
+            };
+        }
+        
+        // Calculate pitch accuracy
+        function calculatePitchAccuracy(originalData, engineData) {
+            if (originalData.length === 0 || engineData.length === 0) {
+                return { score: 0, details: 'No data to compare' };
+            }
+            
+            let totalError = 0;
+            let comparisonCount = 0;
+            
+            for (const enginePoint of engineData) {
+                // Find closest original data point in time
+                const closest = originalData.reduce((prev, curr) => 
+                    Math.abs(curr.time - enginePoint.time) < Math.abs(prev.time - enginePoint.time) ? curr : prev
+                );
+                
+                if (Math.abs(closest.time - enginePoint.time) < 0.5) { // Within 500ms
+                    const cents = 1200 * Math.log2(enginePoint.frequency / closest.frequency);
+                    totalError += Math.abs(cents);
+                    comparisonCount++;
+                }
+            }
+            
+            if (comparisonCount === 0) {
+                return { score: 0, details: 'No matching time points' };
+            }
+            
+            const avgError = totalError / comparisonCount;
+            const score = Math.max(0, 100 - avgError); // 100% if perfect, decreases with error
+            
+            return {
+                score: Math.min(100, score),
+                details: `Avg error: ${avgError.toFixed(1)} cents`,
+                avgError,
+                comparisonCount
+            };
+        }
+        
+        // Calculate timing accuracy
+        function calculateTimingAccuracy(originalData, engineData) {
+            // Simple metric: how well do note onsets align
+            let totalTimingError = 0;
+            let matchedOnsets = 0;
+            
+            for (const enginePoint of engineData) {
+                const closest = originalData.reduce((prev, curr) => 
+                    Math.abs(curr.time - enginePoint.time) < Math.abs(prev.time - enginePoint.time) ? curr : prev
+                );
+                
+                const timeDiff = Math.abs(closest.time - enginePoint.time) * 1000; // Convert to ms
+                if (timeDiff < 1000) { // Within 1 second
+                    totalTimingError += timeDiff;
+                    matchedOnsets++;
+                }
+            }
+            
+            if (matchedOnsets === 0) {
+                return { score: 0, details: 'No matching onsets' };
+            }
+            
+            const avgTimingError = totalTimingError / matchedOnsets;
+            const score = Math.max(0, 100 - avgTimingError / 10); // 100% if 0ms, decreases by 10% per 100ms
+            
+            return {
+                score: Math.min(100, score),
+                details: `Avg drift: ${avgTimingError.toFixed(0)}ms`,
+                avgTimingError,
+                matchedOnsets
+            };
+        }
+        
+        // Calculate completeness (missed notes vs false positives)
+        function calculateCompleteness(originalData, engineData) {
+            const tolerance = 0.3; // 300ms tolerance
+            
+            let matchedOriginal = 0;
+            let falsePositives = 0;
+            
+            // Count how many original points have nearby engine detections
+            for (const originalPoint of originalData) {
+                const hasMatch = engineData.some(enginePoint => 
+                    Math.abs(enginePoint.time - originalPoint.time) < tolerance
+                );
+                if (hasMatch) matchedOriginal++;
+            }
+            
+            // Count false positives (engine detections without nearby originals)
+            for (const enginePoint of engineData) {
+                const hasMatch = originalData.some(originalPoint => 
+                    Math.abs(originalPoint.time - enginePoint.time) < tolerance
+                );
+                if (!hasMatch) falsePositives++;
+            }
+            
+            const missedNotes = originalData.length - matchedOriginal;
+            const precision = engineData.length > 0 ? (engineData.length - falsePositives) / engineData.length : 0;
+            const recall = originalData.length > 0 ? matchedOriginal / originalData.length : 0;
+            const f1Score = precision + recall > 0 ? 2 * (precision * recall) / (precision + recall) : 0;
+            
+            return {
+                score: f1Score * 100,
+                details: `${missedNotes} missed, ${falsePositives} false`,
+                missedNotes,
+                falsePositives,
+                precision: precision * 100,
+                recall: recall * 100
+            };
+        }
+        
+        // Calculate amplitude correlation
+        function calculateAmplitudeCorrelation(originalData, engineData) {
+            // Check if engine detects during high amplitude periods
+            let correctDetections = 0;
+            let totalEngineDetections = engineData.length;
+            
+            if (totalEngineDetections === 0) {
+                return { score: 0, details: 'No engine detections' };
+            }
+            
+            for (const enginePoint of engineData) {
+                // Find original data around this time
+                const nearbyOriginal = originalData.filter(orig => 
+                    Math.abs(orig.time - enginePoint.time) < 0.5
+                );
+                
+                if (nearbyOriginal.length > 0) {
+                    const avgAmplitude = nearbyOriginal.reduce((sum, p) => sum + p.amplitude, 0) / nearbyOriginal.length;
+                    if (avgAmplitude > 0.01) { // Threshold for "audible" sound
+                        correctDetections++;
+                    }
+                }
+            }
+            
+            const score = (correctDetections / totalEngineDetections) * 100;
+            
+            return {
+                score,
+                details: `${correctDetections}/${totalEngineDetections} during sound`,
+                correctDetections,
+                totalEngineDetections
+            };
+        }
+        
+        // Display confidence results
+        function displayConfidenceResults(results) {
+            const resultsDiv = document.getElementById('confidenceResults');
+            resultsDiv.style.display = 'block';
+            
+            const scoreColor = results.overall >= 80 ? '#48bb78' : 
+                             results.overall >= 60 ? '#ed8936' : '#f56565';
+            
+            const scoreStars = results.overall >= 90 ? '⭐⭐⭐⭐⭐' :
+                              results.overall >= 75 ? '⭐⭐⭐⭐' :
+                              results.overall >= 60 ? '⭐⭐⭐' :
+                              results.overall >= 40 ? '⭐⭐' : '⭐';
+            
+            resultsDiv.innerHTML = `
+                <div class="overall-score">
+                    <h3 style="color: ${scoreColor}">Overall Confidence: ${results.overall.toFixed(1)}% ${scoreStars}</h3>
+                    <div class="score-bar">
+                        <div class="score-fill" style="width: ${results.overall}%"></div>
+                    </div>
+                </div>
+                
+                <div class="detailed-breakdown">
+                    <div class="metric">
+                        <span>🎵 Pitch Accuracy:</span>
+                        <span class="score">${results.pitchAccuracy.score.toFixed(1)}%</span>
+                        <span class="details">${results.pitchAccuracy.details}</span>
+                    </div>
+                    
+                    <div class="metric">
+                        <span>⏱️ Timing Accuracy:</span>
+                        <span class="score">${results.timingAccuracy.score.toFixed(1)}%</span>
+                        <span class="details">${results.timingAccuracy.details}</span>
+                    </div>
+                    
+                    <div class="metric">
+                        <span>🎯 Note Detection:</span>
+                        <span class="score">${results.completenessScore.score.toFixed(1)}%</span>
+                        <span class="details">${results.completenessScore.details}</span>
+                    </div>
+                    
+                    <div class="metric">
+                        <span>🔊 Amplitude Sync:</span>
+                        <span class="score">${results.amplitudeCorrelation.score.toFixed(1)}%</span>
+                        <span class="details">${results.amplitudeCorrelation.details}</span>
+                    </div>
+                </div>
+                
+                <div class="recommendations">
+                    <h5>🔧 Analysis Summary:</h5>
+                    <ul>
+                        <li>📊 Original audio: ${results.originalDataPoints} data points</li>
+                        <li>🤖 Engine detected: ${results.engineDataPoints} notes</li>
+                        ${generateRecommendations(results)}
+                    </ul>
+                </div>
+            `;
+        }
+        
+        // Generate recommendations based on analysis
+        function generateRecommendations(results) {
+            const recommendations = [];
+            
+            if (results.pitchAccuracy.score < 70) {
+                recommendations.push('<li>⚠️ Pitch accuracy could be improved - check microphone quality</li>');
+            } else if (results.pitchAccuracy.score > 90) {
+                recommendations.push('<li>✅ Excellent pitch accuracy!</li>');
+            }
+            
+            if (results.timingAccuracy.score < 60) {
+                recommendations.push('<li>⚠️ Timing drift detected - consider audio latency compensation</li>');
+            }
+            
+            if (results.completenessScore.missedNotes > results.engineDataPoints * 0.2) {
+                recommendations.push('<li>⚠️ Engine missed some notes - try speaking/singing louder</li>');
+            }
+            
+            if (results.completenessScore.falsePositives > results.originalDataPoints * 0.1) {
+                recommendations.push('<li>⚠️ Engine detected false notes - improve noise reduction</li>');
+            }
+            
+            if (results.amplitudeCorrelation.score > 85) {
+                recommendations.push('<li>✅ Good silence detection - noise gate working well</li>');
+            }
+            
+            if (results.overall >= 85) {
+                recommendations.push('<li>🎉 Engine performance is excellent for your voice!</li>');
+            } else if (results.overall < 60) {
+                recommendations.push('<li>💡 Consider adjusting microphone position and room acoustics</li>');
+            }
+            
+            return recommendations.join('');
+        }
+        
+        // Test engine with synthetic audio
+        async function testEngine() {
+            updateAnalysisDisplay(`[${new Date().toLocaleTimeString()}] 🔧 Testing engine with synthetic 440Hz signal...`);
+            
+            try {
+                // Create synthetic 440Hz signal
+                const sampleRate = 44100;
+                const duration = 2048; // samples
+                const frequency = 440; // A4
+                const testBuffer = new Float32Array(duration);
+                
+                for (let i = 0; i < duration; i++) {
+                    testBuffer[i] = Math.sin(2 * Math.PI * frequency * i / sampleRate) * 0.5;
+                }
+                
+                updateAnalysisDisplay(`[${new Date().toLocaleTimeString()}] 🔧 Generated test buffer: ${testBuffer.length} samples`);
+                
+                // Test engine components
+                if (!audioProcessor) {
+                    updateAnalysisDisplay(`[${new Date().toLocaleTimeString()}] ❌ AudioProcessor not available`);
+                    return;
+                }
+                
+                if (!musicSystem) {
+                    updateAnalysisDisplay(`[${new Date().toLocaleTimeString()}] ❌ MusicSystem not available`);
+                    return;
+                }
+                
+                updateAnalysisDisplay(`[${new Date().toLocaleTimeString()}] 🔧 Both components available, processing...`);
+                
+                // Process with engine
+                const result = await audioProcessor.processAudio(testBuffer);
+                updateAnalysisDisplay(`[${new Date().toLocaleTimeString()}] 🔧 Engine result: ${JSON.stringify(result)}`);
+                
+                if (result && result.fundamentalFrequency) {
+                    const musicAnalysis = musicSystem.analyzeFrequency(result.fundamentalFrequency);
+                    updateAnalysisDisplay(`[${new Date().toLocaleTimeString()}] ✅ SUCCESS! Detected: ${result.fundamentalFrequency.toFixed(2)}Hz (expected 440Hz)`);
+                    updateAnalysisDisplay(`[${new Date().toLocaleTimeString()}] 🎵 Music analysis: ${JSON.stringify(musicAnalysis)}`);
+                } else {
+                    updateAnalysisDisplay(`[${new Date().toLocaleTimeString()}] ❌ Engine failed to detect frequency in test signal`);
+                }
+                
+            } catch (error) {
+                updateAnalysisDisplay(`[${new Date().toLocaleTimeString()}] ❌ Engine test error: ${error.message}`);
+                console.error('Engine test error:', error);
+            }
         }
     </script>
 </body>

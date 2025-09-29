@@ -151,22 +151,25 @@ export class PitchVoting {
         };
         
         // Initialize algorithms
-        this.fft = new FFT(this.config.frameSize);
-        this.yin = new YIN({
-            sampleRate: this.config.sampleRate,
-            frameSize: this.config.frameSize,
-            threshold: 0.15
-        });
+        this.fft = new FFT(this.config.frameSize, this.config.sampleRate);
+        this.yin = new YIN(
+            this.config.sampleRate,
+            this.config.frameSize,
+            0.15,
+            0.1
+        );
         
-        this.autocorrelation = new Autocorrelation({
-            sampleRate: this.config.sampleRate,
-            frameSize: this.config.frameSize
-        });
+        this.autocorrelation = new Autocorrelation(
+            this.config.sampleRate,
+            this.config.frameSize
+        );
         
         this.hps = new HPS(
             this.config.frameSize,
             this.config.sampleRate,
-            5
+            5,
+            this.config.minFrequency,
+            this.config.maxFrequency
         );
         
         this.initializePerformanceTracking();
@@ -239,9 +242,9 @@ export class PitchVoting {
             if (yinResult.frequency > 0) {
                 results.push({
                     frequency: yinResult.frequency,
-                    confidence: yinResult.confidence,
+                    confidence: yinResult.probability || 0,
                     algorithm: 'YIN',
-                    metadata: { aperiodicity: yinResult.aperiodicity },
+                    metadata: { probability: yinResult.probability },
                     processingTime
                 });
             }
@@ -277,11 +280,13 @@ export class PitchVoting {
             if (hpsResult.frequency > 0) {
                 results.push({
                     frequency: hpsResult.frequency,
-                    confidence: hpsResult.confidence,
+                    confidence: hpsResult.strength || 0,
                     algorithm: 'HPS',
                     metadata: { 
-                        harmonics: hpsResult.harmonics,
-                        spectralPeak: hpsResult.spectralPeak 
+                        strength: hpsResult.strength,
+                        harmonicAmplitudes: hpsResult.harmonicAmplitudes,
+                        harmonicity: hpsResult.harmonicity || 0,
+                        spectralCentroid: hpsResult.spectralCentroid || 0
                     },
                     processingTime
                 });

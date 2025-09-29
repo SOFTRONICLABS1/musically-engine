@@ -6,6 +6,9 @@
 
 import { FFT } from '../algorithms/FFT';
 import { YIN } from '../algorithms/YIN';
+import { HPS } from '../algorithms/HPS';
+import { PitchVoting, VotingResult } from '../algorithms/PitchVoting';
+import { TemporalSmoothing, SmoothedResult } from '../algorithms/TemporalSmoothing';
 import { WindowFunctions } from '../utils/WindowFunctions';
 import { MathUtils } from '../utils/MathUtils';
 import { AudioFeatures } from './AutoDetector';
@@ -123,6 +126,9 @@ export interface GlissandoData {
 export class VocalProcessor {
   private fft: FFT;
   private yin: YIN;
+  private hps: HPS;
+  private pitchVoting: PitchVoting;
+  private temporalSmoothing: TemporalSmoothing;
   private sampleRate: number;
   private frameSize: number;
   private hopSize: number;
@@ -162,8 +168,34 @@ export class VocalProcessor {
       ...config.vocalConfig || {}
     };
     
+    // Initialize enhanced algorithms
     this.fft = new FFT(this.frameSize, this.sampleRate);
-    this.yin = new YIN(this.sampleRate);
+    this.yin = new YIN(this.sampleRate, this.frameSize, 0.15, 0.1);
+    this.hps = new HPS(this.frameSize, this.sampleRate, 5, 80, 2000);
+    
+    // Initialize pitch voting with voice-optimized configuration
+    this.pitchVoting = new PitchVoting({
+      sampleRate: this.sampleRate,
+      frameSize: this.frameSize,
+      minFrequency: 80,   // Lower bound for human voice
+      maxFrequency: 2000, // Upper bound for fundamental frequency
+      confidenceThreshold: 0.3, // Lower threshold for voice
+      maxDeviationSemitones: 0.3, // Tighter tolerance for vocals
+      enableAdaptiveWeighting: true,
+      enableOutlierRejection: true
+    });
+    
+    // Initialize temporal smoothing for stable vocal tracking
+    this.temporalSmoothing = new TemporalSmoothing({
+      windowSize: 8,
+      smoothingFactor: 0.85,
+      maxJumpSemitones: 1.5, // Allow larger jumps for vocal expression
+      minConfidence: 0.3,
+      enableMedianFilter: true,
+      enableHysteresis: true,
+      hysteresisThresholdCents: 40, // Slightly larger for expressive vocals
+      enableAdaptiveSmoothing: true
+    });
   }
   
   /**
@@ -193,13 +225,23 @@ export class VocalProcessor {
     // Pre-process audio for vocal analysis
     processedBuffer = this.preProcessVocal(processedBuffer);
     
-    // Extract fundamental frequency using YIN with fallback
-    let pitchResult = this.yin.detectPitch(processedBuffer);
+    // Use enhanced pitch detection with voting system
+    const votingResult = this.pitchVoting.detectPitch(processedBuffer);
     
-    // If YIN fails (common with test signals), use FFT-based pitch detection as fallback
-    if (pitchResult.frequency === 0) {
-      pitchResult = this.detectPitchFFT(processedBuffer);
-    }
+    // Apply temporal smoothing for stable tracking
+    const smoothedResult = this.temporalSmoothing.process(
+      votingResult.frequency, 
+      votingResult.confidence
+    );
+    
+    // Create pitch result with enhanced data
+    const pitchResult = {
+      frequency: smoothedResult.smoothedFrequency,
+      probability: votingResult.confidence,
+      confidence: smoothedResult.confidence,
+      stability: smoothedResult.stability,
+      trend: smoothedResult.trend
+    };
     
     // Track pitch history for ornament detection
     this.updatePitchHistory(pitchResult.frequency);
